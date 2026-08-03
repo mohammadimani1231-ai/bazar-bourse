@@ -31,11 +31,14 @@ Supabase = قلب سیستم: Postgres، Edge Functions (Deno)، pg_cron + pg_ne
 - جهانی: Yahoo Finance غیررسمی https://query1.finance.yahoo.com/v8/finance/chart/{symbol}
   (BZ=F برنت، GC=F انس، HG=F مس، DX-Y.NYB، ^GSPC) — پشت adapter تا تعویض آسان باشد
 - تاریخی TSE: اسکریپت seed یک‌بارمصرف Python با pytse-client (نیازمند Python ≤3.12 — lxml هنوز روی 3.14 wheel ندارد)
+- تاریخی حقیقی/حقوقی (پیش‌نیاز متریک پول درشت): `/Tsetmc/History.php?key=...&type=1&l18=...` (تاریخ Jalali برمی‌گرداند).
+  ⚠️ IP بعضی محیط‌های ابری (مثل sandbox اجرای Claude Code) روی این endpoint توسط BrsApi ریست می‌شود —
+  اگر backfill محلی fail شد، از Edge Function معادل (`backfill-buyer-breakdown`, از IP خود Supabase) استفاده کن.
 
 ## وضعیت فازها
 - [x] فاز ۰: زیرساخت + تست روز صفر
 - [x] فاز ۱: پایپ‌لاین دیتا
-- [ ] فاز ۲: موتور تابلوخوانی
+- [x] فاز ۲: موتور تابلوخوانی
 - [ ] فاز ۳: موتور سیگنال + رتبه مرکب + بک‌تست
 - [ ] فاز ۴: داشبورد UI
 - [ ] فاز ۵: لایه ژئوپلیتیک + هشدار تلگرام

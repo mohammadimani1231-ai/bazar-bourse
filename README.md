@@ -94,6 +94,7 @@ curl -i "https://<project-ref>.supabase.co/functions/v1/ping-sources" \
 | `collect-global` | هر ۱۵ دقیقه، ۲۴/۷ | Yahoo (برنت/انس/مس/DXY/S&P500) + BrsApi طلا/ارز → `global_quotes` |
 | `build-candles` | ۱۰:۳۰، شنبه‌تاچهارشنبه | از `quotes` روز، کندل روزانه در `daily_candles` upsert می‌کند |
 | `health-check` | هر ۱۰ دقیقه، ۵-۹، شنبه‌تاچهارشنبه | اگر آخرین quote قدیمی‌تر از ۱۵ دقیقه بود، در `pipeline_health` خطا ثبت می‌کند |
+| `compute-tabloo` | هر ۱۰ دقیقه، ۵-۹، شنبه‌تاچهارشنبه | متریک‌های `lib/tabloo.ts` را از آخرین quotes می‌سازد → `tabloo_metrics` (فاز ۲) |
 
 یک job نگهداری هم هست: `quotes-retention` هر شب ساعت ۲ UTC، quotes قدیمی‌تر از ۹۰ روز را حذف می‌کند (سقف ۵۰۰MB پلن رایگان Supabase).
 
@@ -106,3 +107,35 @@ py -3.12 scripts/seed_history.py
 ```
 
 ۵ سال کندل روزانهٔ همهٔ نمادهای `watchlist` را از pytse-client می‌گیرد و در `daily_candles` upsert می‌کند (idempotent — می‌شود دوباره اجرا کرد).
+
+### backfill حقیقی/حقوقی (فاز ۲ — پیش‌نیاز متریک «پول درشت»)
+
+از `BrsApi Tsetmc/History.php?type=1` (تاریخ‌های Jalali → میلادی تبدیل می‌شوند) ستون‌های
+`buy_i_volume`/`sell_i_volume`/`buy_count_i`/`sell_count_i` را برای ~۱۳۰ روز اخیر هر نماد در
+`daily_candles` merge می‌کند — بدون این ستون‌ها، متریک «پول درشت» تا وقتی پایپ‌لاین زنده به‌اندازهٔ
+کافی داده جمع نکند (۳۰ روز معاملاتی) خروجی «داده ناکافی» می‌دهد.
+
+⚠️ این endpoint از IP بعضی محیط‌های ابری (مثل sandbox اجرای Claude Code) توسط BrsApi ریست می‌شود.
+دو راه اجرا:
+
+```bash
+# راه ۱: لوکال (روی شبکهٔ معمولی/خانگی معمولاً مشکلی ندارد)
+py -3.12 scripts/backfill_buyer_breakdown.py
+
+# راه ۲: از IP خود Supabase (وقتی راه ۱ با connection reset مواجه شد)
+npx supabase functions deploy backfill-buyer-breakdown
+curl -X POST "https://<project-ref>.supabase.co/functions/v1/backfill-buyer-breakdown" \
+  -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY"
+```
+
+هر دو idempotent‌اند (upsert جزئی روی `symbol,date` — ستون‌های OHLCV موجود دست‌نخورده می‌مانند).
+
+## موتور تابلوخوانی (فاز ۲)
+
+`lib/tabloo.ts` — توابع خالص و تست‌شده برای سرانه خرید/فروش حقیقی، قدرت خریدار، ورود/خروج پول
+(per-symbol و per-industry)، حجم مشکوک، پول درشت (پرسنتایلی)، کد‌به‌کد (فقط پرچم اطلاع‌رسان)،
+وضعیت/سرعت صف، و سرانه تجمیعی بازار + تشخیص کراس.
+
+Edge Function `compute-tabloo` هر ۱۰ دقیقه در ساعات بازار این متریک‌ها را از آخرین `quotes` می‌سازد
+و در `tabloo_metrics` می‌نویسد (`symbol='MARKET'` برای متریک‌های کل بازار، نام صنعت برای
+`money_flow_industry`).
