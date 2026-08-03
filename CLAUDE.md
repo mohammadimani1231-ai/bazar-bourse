@@ -23,15 +23,18 @@ Supabase = قلب سیستم: Postgres، Edge Functions (Deno)، pg_cron + pg_ne
 10. commit های کوچک روی برنچ dev؛ merge به main فقط با تأیید کاربر.
 
 ## منابع دیتا
-- بورس ایران: BrsApi.ir (env: BRSAPI_KEY) — قیمت، حجم، حقیقی/حقوقی، order book
-- طلا/ارز ریالی: BrsApi (fallback: TGJU)
+- بورس ایران: BrsApi.ir (env: BRSAPI_KEY) — پایه `https://Api.BrsApi.ir` (از ۱۴۰۵/۰۲/۰۵ عوض شده، لینک قدیمی `BrsApi.ir/Api` از ۱۴۰۵/۰۵/۰۵ حذف می‌شود)
+  - تک‌نماد: `/Tsetmc/Symbol.php?key=...&l18=<نماد فارسی>` — سهمیهٔ روزانه‌اش بسیار کم است، برای پایپ‌لاین استفاده نشود
+  - همهٔ نمادها یک‌جا (برای collect-tse): `/Tsetmc/AllSymbols.php?key=...`
+  - طلا/سکه/ارز (نرخ بازار آزاد، نه دولتی/نیمایی): `/Market/Gold_Currency.php?key=...`
+- طلا/ارز ریالی: BrsApi (fallback: TGJU) — فقط نرخ بازار آزاد؛ نرخ دولتی/رسمی فعلاً خارج از scope است
 - جهانی: Yahoo Finance غیررسمی https://query1.finance.yahoo.com/v8/finance/chart/{symbol}
   (BZ=F برنت، GC=F انس، HG=F مس، DX-Y.NYB، ^GSPC) — پشت adapter تا تعویض آسان باشد
-- تاریخی TSE: اسکریپت seed یک‌بارمصرف Python با pytse-client
+- تاریخی TSE: اسکریپت seed یک‌بارمصرف Python با pytse-client (نیازمند Python ≤3.12 — lxml هنوز روی 3.14 wheel ندارد)
 
 ## وضعیت فازها
 - [x] فاز ۰: زیرساخت + تست روز صفر
-- [ ] فاز ۱: پایپ‌لاین دیتا
+- [x] فاز ۱: پایپ‌لاین دیتا
 - [ ] فاز ۲: موتور تابلوخوانی
 - [ ] فاز ۳: موتور سیگنال + رتبه مرکب + بک‌تست
 - [ ] فاز ۴: داشبورد UI

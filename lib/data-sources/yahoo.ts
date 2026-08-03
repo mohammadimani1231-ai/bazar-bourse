@@ -5,6 +5,7 @@ const YAHOO_CHART_URL = "https://query1.finance.yahoo.com/v8/finance/chart/";
 export interface YahooQuote {
   symbol: string;
   regularMarketPrice: number | null;
+  previousClose: number | null;
   currency: string | null;
   raw: unknown;
 }
@@ -29,6 +30,7 @@ export async function fetchYahooQuote(symbol: string): Promise<YahooQuote> {
   return {
     symbol,
     regularMarketPrice: meta?.regularMarketPrice ?? null,
+    previousClose: meta?.chartPreviousClose ?? meta?.previousClose ?? null,
     currency: meta?.currency ?? null,
     raw: json,
   };
