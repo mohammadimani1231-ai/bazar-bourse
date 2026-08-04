@@ -1,5 +1,6 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
+import { checkTodayWasTradingDay } from "../_shared/marketStatus.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
 import { buildDailyCandle } from "../../../lib/transforms/candle.ts";
 import type { QuoteRow } from "../../../lib/transforms/quote.ts";
@@ -9,6 +10,15 @@ Deno.serve(async () => {
   const client = createServiceClient();
 
   try {
+    const wasTradingDay = await checkTodayWasTradingDay(client);
+    if (!wasTradingDay) {
+      const latencyMs = Math.round(performance.now() - start);
+      await logHealth(client, "build-candles", "market_closed", "not a trading day", latencyMs);
+      return new Response(JSON.stringify({ ok: true, skipped: "market_closed" }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const { date, startUtc, endUtc } = tehranDayBounds(new Date());
 
     const { data: quotes, error } = await client

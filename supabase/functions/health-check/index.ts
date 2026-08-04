@@ -1,5 +1,6 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
+import { checkMarketOpen } from "../_shared/marketStatus.ts";
 
 const STALE_THRESHOLD_MS = 15 * 60 * 1000;
 
@@ -8,6 +9,16 @@ Deno.serve(async () => {
   const client = createServiceClient();
 
   try {
+    const marketStatus = await checkMarketOpen(client);
+    if (!marketStatus.open) {
+      // هشدار «مرگ پایپ‌لاین» فقط وقتی بازار باز است معنا دارد — قید CLAUDE.md #11
+      const latencyMs = Math.round(performance.now() - start);
+      await logHealth(client, "health-check", "market_closed", marketStatus.reason, latencyMs);
+      return new Response(JSON.stringify({ ok: true, skipped: "market_closed", reason: marketStatus.reason }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const { data, error } = await client
       .from("quotes")
       .select("captured_at")

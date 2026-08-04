@@ -1,5 +1,6 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
+import { checkMarketOpenLight } from "../_shared/marketStatus.ts";
 import { fetchBrsApiAllSymbols } from "../../../lib/data-sources/brsapi.ts";
 import { brsApiRowToQuoteRow } from "../../../lib/transforms/quote.ts";
 
@@ -8,6 +9,15 @@ Deno.serve(async () => {
   const client = createServiceClient();
 
   try {
+    const marketStatus = await checkMarketOpenLight(client);
+    if (!marketStatus.open) {
+      const latencyMs = Math.round(performance.now() - start);
+      await logHealth(client, "collect-tse", "market_closed", marketStatus.reason, latencyMs);
+      return new Response(JSON.stringify({ ok: true, skipped: "market_closed", reason: marketStatus.reason }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const brsApiKey = Deno.env.get("BRSAPI_KEY") ?? "";
 
     const { data: watchlist, error: watchlistError } = await client

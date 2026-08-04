@@ -95,8 +95,15 @@ curl -i "https://<project-ref>.supabase.co/functions/v1/ping-sources" \
 | `build-candles` | ۱۰:۳۰، شنبه‌تاچهارشنبه | از `quotes` روز، کندل روزانه در `daily_candles` upsert می‌کند |
 | `health-check` | هر ۱۰ دقیقه، ۵-۹، شنبه‌تاچهارشنبه | اگر آخرین quote قدیمی‌تر از ۱۵ دقیقه بود، در `pipeline_health` خطا ثبت می‌کند |
 | `compute-tabloo` | هر ۱۰ دقیقه، ۵-۹، شنبه‌تاچهارشنبه | متریک‌های `lib/tabloo.ts` را از آخرین quotes می‌سازد → `tabloo_metrics` (فاز ۲) |
+| `compute-rank` | ۱۰:۴۰، شنبه‌تاچهارشنبه | رتبهٔ فنی مرکب (`lib/composite-rank.ts`) هر نماد → `composite_rank` (فاز ۳) |
+| `compute-signals` | هر ۱۰ دقیقه، ۵-۹، شنبه‌تاچهارشنبه | ارزیابی قوانین فعال `signal_rules` (`lib/signal-engine.ts`) → `signals` (فاز ۳) |
+| `evaluate-signal-outcomes` | ۱۰:۴۵، شنبه‌تاچهارشنبه | بازده ۱/۵/۲۰ روزهٔ سیگنال‌های اخیر → `signal_outcomes` (فاز ۳) |
 
 یک job نگهداری هم هست: `quotes-retention` هر شب ساعت ۲ UTC، quotes قدیمی‌تر از ۹۰ روز را حذف می‌کند (سقف ۵۰۰MB پلن رایگان Supabase).
+
+همهٔ این Functionها اول `lib/market-status.ts` را چک می‌کنند (قید CLAUDE.md #11) و اگر بازار
+واقعاً باز نباشد (نه فقط بر اساس روز هفته) ساکت با `status='market_closed'` خارج می‌شوند —
+جدول `market_holidays (date, title)` را برای تعطیلات رسمی/مذهبی هرسال دستی پر کن.
 
 ### seed تاریخی
 
@@ -139,3 +146,36 @@ curl -X POST "https://<project-ref>.supabase.co/functions/v1/backfill-buyer-brea
 Edge Function `compute-tabloo` هر ۱۰ دقیقه در ساعات بازار این متریک‌ها را از آخرین `quotes` می‌سازد
 و در `tabloo_metrics` می‌نویسد (`symbol='MARKET'` برای متریک‌های کل بازار، نام صنعت برای
 `money_flow_industry`).
+
+## موتور سیگنال + بک‌تست (فاز ۳)
+
+`lib/indicators.ts` (EMA, RSI Wilder, ROC, PPO+هیستوگرام, فاصله از ۵۲هفته — تست‌شده در برابر
+مقادیر مرجع pandas)، `lib/composite-rank.ts` (رتبهٔ SCTR-مانند، پرسنتایلی)، `lib/signal-engine.ts`
+(evaluator قوانین jsonb-محور از جدول `signal_rules`) — همهٔ این‌ها هم در Edge Functionهای زنده و
+هم در `scripts/backtest.ts` عیناً import می‌شوند (بدون پیاده‌سازی موازی).
+
+### بک‌فیل بنچمارک تاریخی (پیش‌نیاز بک‌تست)
+
+```bash
+py -3.12 scripts/backfill_benchmarks.py
+# اگر Gold_Currency_Pro از IP لوکال ریست شد:
+npx supabase functions deploy backfill-benchmarks
+curl -X POST ".../functions/v1/backfill-benchmarks" -H "Authorization: Bearer $ANON_KEY"
+```
+
+شاخص کل (pytse-client) + دلار آزاد/طلای ۱۸ عیار (BrsApi Gold_Currency_Pro) را در
+`benchmark_candles` می‌ریزد.
+
+### اجرای بک‌تست
+
+```bash
+npm run backtest -- --from 2021-01-01
+```
+
+روی `daily_candles`، ورود با open روز بعد از سیگنال (ضد look-ahead)، کارمزد ۱.۵٪ رفت‌وبرگشت،
+اندازهٔ پوزیشن ۱۰٪ سرمایه (حداکثر ۱۰ هم‌زمان)، خروج با سیگنال sell یا حداکثر ۲۰ روز نگه‌داری.
+گزارش HTML+JSON در `backtest-reports/` (gitignore شده — نتایج تولیدی‌اند، نه سورس).
+
+**نتیجهٔ فعلی صادقانه در CLAUDE.md ثبت شده: با قوانین اولیه استراتژی به‌شدت زیان‌ده بود؛ بعد از
+تنظیم وزن بر همان دادهٔ بک‌تست، زیان به تقریباً صفر رسید ولی هنوز به‌شدت از buy-and-hold عقب است
+و نمونهٔ معاملات برای نتیجه‌گیری آماری خیلی کوچک است.**
