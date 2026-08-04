@@ -20,7 +20,12 @@ Supabase = قلب سیستم: Postgres، Edge Functions (Deno)، pg_cron + pg_ne
 8. تاریخ در DB همیشه UTC/گرگوریان؛ در UI شمسی (date-fns-jalali).
 9. در نمایش قیمت TSE همیشه هر دو: آخرین قیمت (pl) و قیمت پایانی (pc) — حجم مبنا
    این دو را جدا می‌کند.
-10. commit های کوچک روی برنچ dev؛ merge به main فقط با تأیید کاربر.
+10. commit های کوچک روی برنچ dev؛ merge به main فقط با تأیید کاربر. **ایمیل گیت روی این ریپو**
+    (`git config user.email` محلی، نه global) عمداً `mohammadi.mani1231@gmail.com` است — همان
+    ایمیل اکانت Vercel `mohammadimani1231-ai` که پروژهٔ `bazar-bourse` رویش است. پلن Hobby
+    اجازهٔ عضو تیم نمی‌دهد، پس اگر author کامیت این ایمیل نباشد Vercel deploy را روی push خودکار
+    block می‌کند («Git author ... must have access to the team»). این عمداً جدا از ایمیل global
+    (`mohammadi.davoud1351@gmail.com`، مال ریپوهای دیگر مثل piro-admin) نگه داشته شده — دستکاریش نکن.
 11. وضعیت بازار هرگز از حافظه یا فرمول «شنبه تا چهارشنبه» استنتاج نشود. تعطیلات بورس ایران
     شامل تعطیلات قمری متغیر و تعطیلی‌های اعلامی بی‌قاعده است. `lib/market-status.ts` منبع
     حقیقت است: اول جدول `market_holidays` (کمکی، کاربر پر می‌کند)، بعد اگر حجم نماد پرمعامله
