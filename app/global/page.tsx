@@ -1,8 +1,8 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
-import { tehranDayBounds } from "@/lib/time/tehranDay.ts";
+import { downsampleToDaily } from "@/lib/downsampleDaily.ts";
 import { buildEqualWeightIndex, type DatedValue } from "@/lib/syntheticIndex.ts";
 import { crossCorrelation, bestLag } from "@/lib/stats.ts";
-import { RebaseChart, type SeriesInput } from "@/components/RebaseChart";
+import { RebaseChart, type SeriesInput, type NewsMarkerInput } from "@/components/RebaseChart";
 import { CorrelationHeatmap, type AssetSeries } from "@/components/CorrelationHeatmap";
 import { LeadLagPanel, type LeadLagPair } from "@/components/LeadLagPanel";
 
@@ -11,19 +11,6 @@ export const dynamic = "force-dynamic";
 
 const REFINERY_SYMBOLS = ["شپنا", "شبندر", "شتران", "شبریز", "شسپا", "شراز"];
 const METALS_SYMBOLS = ["فملی", "میدکو", "فایرا", "سیسکو", "هرمز", "ارفع", "کاوه", "آلومینا"];
-
-function downsampleDaily(rows: { price: number | null; captured_at: string }[]): DatedValue[] {
-  const byDay = new Map<string, { value: number; capturedAt: string }>();
-  for (const row of rows) {
-    if (row.price == null) continue;
-    const date = tehranDayBounds(new Date(row.captured_at)).date;
-    const existing = byDay.get(date);
-    if (!existing || row.captured_at > existing.capturedAt) {
-      byDay.set(date, { value: row.price, capturedAt: row.captured_at });
-    }
-  }
-  return [...byDay.entries()].map(([date, v]) => ({ date, value: v.value })).sort((a, b) => a.date.localeCompare(b.date));
-}
 
 const PAGE_SIZE = 1000;
 
@@ -74,8 +61,8 @@ async function fetchBenchmarkCandles(
 async function fetchGlobalQuoteHistory(
   supabase: ReturnType<typeof createServerSupabaseClient>,
   asset: string,
-): Promise<{ price: number | null; captured_at: string }[]> {
-  return fetchAllPages(async (from, to) => {
+): Promise<{ value: number | null; captured_at: string }[]> {
+  const rows = await fetchAllPages(async (from, to) => {
     const { data } = await supabase
       .from("global_quotes")
       .select("price, captured_at")
@@ -84,25 +71,32 @@ async function fetchGlobalQuoteHistory(
       .range(from, to);
     return data ?? [];
   });
+  return rows.map((r) => ({ value: r.price, captured_at: r.captured_at }));
 }
 
 export default async function GlobalPage() {
   const supabase = createServerSupabaseClient();
 
-  const [tedpix, usdIrr, goldIrr, brentRaw, goldOunceRaw, dxyRaw, refineryCloses, metalsCloses] = await Promise.all([
-    fetchBenchmarkCandles(supabase, "tedpix"),
-    fetchBenchmarkCandles(supabase, "usd_irr"),
-    fetchBenchmarkCandles(supabase, "gold_18k"),
-    fetchGlobalQuoteHistory(supabase, "brent"),
-    fetchGlobalQuoteHistory(supabase, "gold_ounce"),
-    fetchGlobalQuoteHistory(supabase, "dxy"),
-    Promise.all(REFINERY_SYMBOLS.map((s) => fetchSymbolCloses(supabase, s))),
-    Promise.all(METALS_SYMBOLS.map((s) => fetchSymbolCloses(supabase, s))),
-  ]);
+  const [tedpix, usdIrr, goldIrr, brentRaw, goldOunceRaw, dxyRaw, refineryCloses, metalsCloses, newsRaw] =
+    await Promise.all([
+      fetchBenchmarkCandles(supabase, "tedpix"),
+      fetchBenchmarkCandles(supabase, "usd_irr"),
+      fetchBenchmarkCandles(supabase, "gold_18k"),
+      fetchGlobalQuoteHistory(supabase, "brent"),
+      fetchGlobalQuoteHistory(supabase, "gold_ounce"),
+      fetchGlobalQuoteHistory(supabase, "dxy"),
+      Promise.all(REFINERY_SYMBOLS.map((s) => fetchSymbolCloses(supabase, s))),
+      Promise.all(METALS_SYMBOLS.map((s) => fetchSymbolCloses(supabase, s))),
+      supabase.from("news_items").select("title, url, published_at").order("published_at", { ascending: false }).limit(500),
+    ]);
 
-  const brent = downsampleDaily(brentRaw);
-  const goldOunce = downsampleDaily(goldOunceRaw);
-  const dxy = downsampleDaily(dxyRaw);
+  const newsMarkers: NewsMarkerInput[] = (newsRaw.data ?? [])
+    .filter((n) => n.published_at)
+    .map((n) => ({ date: n.published_at!.slice(0, 10), title: n.title, url: n.url }));
+
+  const brent = downsampleToDaily(brentRaw);
+  const goldOunce = downsampleToDaily(goldOunceRaw);
+  const dxy = downsampleToDaily(dxyRaw);
 
   const refineryIndex = buildEqualWeightIndex(refineryCloses);
   const metalsIndex = buildEqualWeightIndex(metalsCloses);
@@ -143,7 +137,7 @@ export default async function GlobalPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-bold">نمای جهانی</h1>
-      <RebaseChart series={rebaseSeries} />
+      <RebaseChart series={rebaseSeries} newsMarkers={newsMarkers} />
       <CorrelationHeatmap assets={heatmapAssets} />
       <LeadLagPanel pairs={leadLagPairs} />
       <p className="text-[11px] text-muted">

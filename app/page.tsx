@@ -4,8 +4,11 @@ import { GlobalTickerBar, type TickerItem } from "@/components/GlobalTickerBar";
 import { IndexSummary } from "@/components/IndexSummary";
 import { MarketTreemap, type TreemapItem } from "@/components/MarketTreemap";
 import { IndustryRanking, type IndustryFlow } from "@/components/IndustryRanking";
-import { RegimeBadge } from "@/components/RegimeBadge";
+import { RegimeSwitch } from "@/components/RegimeSwitch";
+import { TensionGauge } from "@/components/TensionGauge";
+import { NewsFeed, type NewsItem } from "@/components/NewsFeed";
 import { AiBriefCard } from "@/components/AiBriefCard";
+import type { MarketRegime } from "@/lib/marketRegime.ts";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -44,6 +47,9 @@ export default async function OverviewPage() {
     { data: quotesRaw },
     { data: prevCandlesRaw },
     { data: moneyFlowRaw },
+    { data: tensionRows },
+    { data: regimeSetting },
+    { data: newsRaw },
   ] = await Promise.all([
     supabase.from("global_quotes").select("asset, price, change_pct, captured_at").order("captured_at", { ascending: false }).limit(120),
     supabase.from("benchmark_candles").select("date, close").eq("asset", "tedpix").order("date", { ascending: false }).limit(2),
@@ -51,6 +57,9 @@ export default async function OverviewPage() {
     supabase.from("quotes").select("symbol, last_price, close_price, value, captured_at").order("captured_at", { ascending: false }).limit(200),
     supabase.from("daily_candles").select("symbol, date, final_price").lt("date", today).order("date", { ascending: false }).limit(200),
     supabase.from("tabloo_metrics").select("symbol, value, captured_at").eq("metric", "money_flow").order("captured_at", { ascending: false }).limit(200),
+    supabase.from("global_quotes").select("price, captured_at").eq("asset", "tension_index").order("captured_at", { ascending: false }).limit(1),
+    supabase.from("settings").select("value").eq("key", "market_regime").maybeSingle(),
+    supabase.from("news_items").select("id, title, source, url, matched_keywords, published_at").order("published_at", { ascending: false }).limit(15),
   ]);
 
   const globalQuotesLatest = latestByKey(globalQuotesRaw ?? [], "asset");
@@ -112,6 +121,17 @@ export default async function OverviewPage() {
     moneyFlow,
   }));
 
+  const tensionLatest = tensionRows?.[0] ?? null;
+  const regime = ((regimeSetting?.value as MarketRegime | undefined) ?? "normal") as MarketRegime;
+  const newsItems: NewsItem[] = (newsRaw ?? []).map((n) => ({
+    id: n.id,
+    title: n.title,
+    source: n.source,
+    url: n.url,
+    matchedKeywords: n.matched_keywords ?? [],
+    publishedAt: n.published_at,
+  }));
+
   return (
     <div className="flex flex-col gap-4">
       <GlobalTickerBar items={tickerItems} />
@@ -121,12 +141,14 @@ export default async function OverviewPage() {
         totalMarketValue={totalMarketValue}
       />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="flex flex-col gap-4 lg:col-span-2">
           <MarketTreemap items={treemapItems} />
+          <NewsFeed items={newsItems} />
         </div>
         <div className="flex flex-col gap-4">
           <IndustryRanking items={industryFlows} />
-          <RegimeBadge />
+          <TensionGauge value={tensionLatest?.price ?? null} capturedAt={tensionLatest?.captured_at ?? null} />
+          <RegimeSwitch current={regime} />
           <AiBriefCard />
         </div>
       </div>

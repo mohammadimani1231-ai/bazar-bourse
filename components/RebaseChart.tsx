@@ -11,6 +11,12 @@ export interface SeriesInput {
   points: { date: string; value: number }[];
 }
 
+export interface NewsMarkerInput {
+  date: string;
+  title: string;
+  url: string;
+}
+
 const RANGE_OPTIONS: { label: string; days: number | null }[] = [
   { label: "۳۰ روز", days: 30 },
   { label: "۹۰ روز", days: 90 },
@@ -19,7 +25,7 @@ const RANGE_OPTIONS: { label: string; days: number | null }[] = [
   { label: "همه", days: null },
 ];
 
-export function RebaseChart({ series }: { series: SeriesInput[] }) {
+export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[]; newsMarkers?: NewsMarkerInput[] }) {
   const [rangeDays, setRangeDays] = useState<number | null>(90);
 
   const { xAxisDates, chartSeries } = useMemo(() => {
@@ -33,7 +39,19 @@ export function RebaseChart({ series }: { series: SeriesInput[] }) {
     sliced.forEach((s) => s.points.forEach((p) => dateSet.add(p.date)));
     const dates = [...dateSet].sort();
 
-    const chartSeries = sliced.map((s) => {
+    const newsByDate = new Map<string, NewsMarkerInput>();
+    for (const n of newsMarkers) {
+      if (dateSet.has(n.date) && !newsByDate.has(n.date)) newsByDate.set(n.date, n);
+    }
+    const markLineData = [...newsByDate.entries()].map(([date, n]) => ({
+      xAxis: formatJalaliDay(date + "T00:00:00Z"),
+      label: { formatter: "خبر", color: "#6366f1", fontSize: 9 },
+      lineStyle: { color: "#6366f1", type: "dashed" as const, width: 1 },
+      newsUrl: n.url,
+      newsTitle: n.title,
+    }));
+
+    const chartSeries = sliced.map((s, i) => {
       const base = s.points[0]?.value;
       const byDate = new Map(s.points.map((p) => [p.date, p.value]));
       return {
@@ -45,11 +63,14 @@ export function RebaseChart({ series }: { series: SeriesInput[] }) {
           const v = byDate.get(d);
           return v == null || !base ? null : Number(((v / base) * 100).toFixed(2));
         }),
+        ...(i === 0 && markLineData.length > 0
+          ? { markLine: { symbol: "none", data: markLineData, silent: false } }
+          : {}),
       };
     });
 
     return { xAxisDates: dates, chartSeries };
-  }, [series, rangeDays]);
+  }, [series, rangeDays, newsMarkers]);
 
   const option = {
     backgroundColor: "transparent",
@@ -95,7 +116,20 @@ export function RebaseChart({ series }: { series: SeriesInput[] }) {
       {xAxisDates.length === 0 ? (
         <p className="text-xs text-muted">داده‌ای در این بازه نیست.</p>
       ) : (
-        <ReactECharts option={option} style={{ height: 360 }} />
+        <ReactECharts
+          option={option}
+          style={{ height: 360 }}
+          onEvents={{
+            click: (params: { componentType?: string; data?: { newsUrl?: string } }) => {
+              if (params.componentType === "markLine" && params.data?.newsUrl) {
+                window.open(params.data.newsUrl, "_blank", "noopener,noreferrer");
+              }
+            },
+          }}
+        />
+      )}
+      {newsMarkers.length > 0 && (
+        <p className="mt-2 text-[11px] text-muted">خط‌چین آبی «خبر» = رویداد ژئوپلیتیک/اقتصادی — کلیک برای لینک.</p>
       )}
     </div>
   );

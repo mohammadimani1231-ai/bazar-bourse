@@ -58,4 +58,15 @@ describe("brsApiGoldCurrencyToGlobalQuoteRows", () => {
     expect(rows.find((r) => r.asset === "gold_ounce")).toBeUndefined();
     expect(rows).toHaveLength(3);
   });
+
+  it("gold_18k/coin_emami بدون تغییر (BrsApi همین‌جا هم به ریال است)", () => {
+    const rows = brsApiGoldCurrencyToGlobalQuoteRows(RESPONSE, "2026-08-03T12:00:00.000Z");
+    expect(rows.find((r) => r.asset === "gold_18k")?.price).toBe(18359600);
+    expect(rows.find((r) => r.asset === "coin_emami")?.price).toBe(184995000);
+  });
+
+  it("usd_irr در ۱۰ ضرب می‌شود — BrsApi آرایهٔ currency را به تومان می‌دهد نه ریال", () => {
+    const rows = brsApiGoldCurrencyToGlobalQuoteRows(RESPONSE, "2026-08-03T12:00:00.000Z");
+    expect(rows.find((r) => r.asset === "usd_irr")?.price).toBe(1928800);
+  });
 });

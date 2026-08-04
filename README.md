@@ -203,3 +203,35 @@ npm run backtest -- --from 2021-01-01
   باید با `.range()` صفحه‌بندی کرد (نمونه: `fetchAllPages` در `app/global/page.tsx`).
 
 جزئیات کامل (شکاف‌های اسکیما نسبت به پرامپت فاز ۴ و نحوهٔ جایگزینی‌شان) در چک‌لیست فاز ۴ در CLAUDE.md.
+
+## لایه ژئوپلیتیک + هشدار تلگرام (فاز ۵)
+
+- `compute-tension` (هر ۱۵ دقیقه) → شاخص تنش (gauge ۰-۱۰۰ در نمای کلی)، از z-score نوسان دلار +
+  حباب سکه امامی + z-score تغییر برنت.
+- `collect-news` (ساعتی) → `news_items`، فیدهای RSS واقعی (فارسی+بین‌المللی، لیستشان در
+  `settings.news_feeds`) فیلترشده با کلیدواژه (`settings.news_keywords`) — هر دو در دیتابیس
+  configurable، نه هاردکد. مارکر اخبار روی چارت کندل صفحهٔ نماد و چارت rebase نمای جهانی (کلیک → لینک خبر).
+- `settings(market_regime)` — سوییچ در نمای کلی، بنر در همهٔ صفحات، وصل به آستانهٔ سیگنال در `compute-signals`.
+- هشدار تلگرام: `evaluate-alerts` (۱۰دقیقه‌ای، action: سیگنال جدید/جهش تنش/مرگ پایپ‌لاین → فوری) +
+  `send-alert-digest` (ساعتی، info: حجم مشکوک/پول درشت/کد‌به‌کد → همه در یک پیام). قوانین در
+  `alert_rules`، تاریخچه در `alert_log`.
+
+### راه‌اندازی بات تلگرام
+
+```bash
+# ۱. به @BotFather پیام بده → /newbot → توکن را بگیر
+# ۲. به بات خودت پیام بده، بعد chat id را از این URL بگیر:
+curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
+
+npx supabase secrets set TELEGRAM_BOT_TOKEN=your_token TELEGRAM_CHAT_ID=your_chat_id
+```
+
+بدون این دو secret، `evaluate-alerts`/`send-alert-digest` طبیعی کار می‌کنند (قانون trigger می‌شود،
+در `alert_log` ثبت می‌شود) ولی `delivered=false` می‌ماند — خطا نمی‌دهند، فقط ارسال واقعی رخ نمی‌دهد.
+
+### باگ کشف‌شده حین این فاز
+
+BrsApi `Gold_Currency.php` واحد ارز (`currency`) را به تومان برمی‌گرداند ولی طلا/سکه (`gold`) را به
+ریال — یک ناسازگاری واقعی در خود API. از فاز ۱ تا این فاز `global_quotes.usd_irr` ده برابر کوچک‌تر از
+واقعیت بود (تیکر «دلار آزاد» در نمای کلی هم همینطور). رفع شد در `lib/transforms/globalQuote.ts` +
+مایگریشن یک‌بارهٔ اصلاح دادهٔ قبلی. جزئیات کامل در چک‌لیست فاز ۵ در CLAUDE.md.

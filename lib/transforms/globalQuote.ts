@@ -27,26 +27,46 @@ export function yahooQuoteToGlobalQuoteRow(
   };
 }
 
-const GOLD_CURRENCY_ASSET_MAP: Record<string, string> = {
-  USD: "usd_irr",
+const GOLD_ASSET_MAP: Record<string, string> = {
   IR_GOLD_18K: "gold_18k",
   IR_COIN_EMAMI: "coin_emami",
 };
 
-/** پاسخ Gold_Currency.php را فقط برای دارایی‌های موردنیاز ما (نگاشت‌شده در GOLD_CURRENCY_ASSET_MAP) به سطر تبدیل می‌کند. */
+const CURRENCY_ASSET_MAP: Record<string, string> = {
+  USD: "usd_irr",
+};
+
+// آرایهٔ gold. از Gold_Currency.php واقعاً به ریال است (سازگار با benchmark_candles، تأیید‌شده
+// روی دادهٔ زنده) ولی آرایهٔ currency. همان endpoint به تومان است — یک ناسازگاری واقعی در خود
+// BrsApi، نه اشتباه ما. بدون این ×۱۰، usd_irr در global_quotes با usd_irr در benchmark_candles
+// (که واحدش ریال است) ۱۰ برابر اختلاف می‌گیرد — دقیقاً همین باگ در فاز ۵ حین ساخت tension_index
+// کشف شد (z-score غیرممکن ۷۴ داد چون یک سری تومان با یک سری ریال مقایسه می‌شد).
+const TOMAN_TO_RIAL = 10;
+
+/** پاسخ Gold_Currency.php را فقط برای دارایی‌های موردنیاز ما به سطر global_quotes (همیشه ریال) تبدیل می‌کند. */
 export function brsApiGoldCurrencyToGlobalQuoteRows(
   data: BrsApiGoldCurrencyResponse,
   capturedAt: string,
 ): GlobalQuoteRow[] {
-  const items = [...(data.gold ?? []), ...(data.currency ?? [])];
   const rows: GlobalQuoteRow[] = [];
 
-  for (const item of items) {
-    const asset = GOLD_CURRENCY_ASSET_MAP[item.symbol];
+  for (const item of data.gold ?? []) {
+    const asset = GOLD_ASSET_MAP[item.symbol];
     if (!asset) continue;
     rows.push({
       asset,
       price: typeof item.price === "number" ? item.price : null,
+      change_pct: typeof item.change_percent === "number" ? item.change_percent : null,
+      captured_at: capturedAt,
+    });
+  }
+
+  for (const item of data.currency ?? []) {
+    const asset = CURRENCY_ASSET_MAP[item.symbol];
+    if (!asset) continue;
+    rows.push({
+      asset,
+      price: typeof item.price === "number" ? item.price * TOMAN_TO_RIAL : null,
       change_pct: typeof item.change_percent === "number" ? item.change_percent : null,
       captured_at: capturedAt,
     });

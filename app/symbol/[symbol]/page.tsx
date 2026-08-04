@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { tehranDayBounds } from "@/lib/time/tehranDay.ts";
 import { PriceHeader } from "@/components/PriceHeader";
-import { CandleChart, type CandlePoint, type SignalMarker } from "@/components/CandleChart";
+import { CandleChart, type CandlePoint, type SignalMarker, type NewsMarker } from "@/components/CandleChart";
 import { IntradayFlowChart, type IntradayPoint } from "@/components/IntradayFlowChart";
 import { QueueFlags, type QueueFlagsData } from "@/components/QueueFlags";
 import { SignalHistoryList, type SignalHistoryItem } from "@/components/SignalHistoryList";
@@ -27,6 +27,7 @@ export default async function SymbolPage({
     { data: candlesRaw },
     { data: signalsRaw },
     { data: todayMetricsRaw },
+    { data: newsRaw },
   ] = await Promise.all([
     supabase.from("watchlist").select("symbol, industry").eq("symbol", symbol).maybeSingle(),
     supabase
@@ -54,6 +55,11 @@ export default async function SymbolPage({
       .gte("captured_at", dayStartUtc)
       .lte("captured_at", nowIso)
       .order("captured_at", { ascending: true }),
+    supabase
+      .from("news_items")
+      .select("title, url, published_at")
+      .order("published_at", { ascending: false })
+      .limit(200),
   ]);
 
   if (!watchlistRow) notFound();
@@ -66,6 +72,10 @@ export default async function SymbolPage({
   const signalMarkers: SignalMarker[] = signals
     .filter((s) => s.direction === "buy" || s.direction === "sell")
     .map((s) => ({ date: s.created_at.slice(0, 10), direction: s.direction }));
+
+  const newsMarkers: NewsMarker[] = (newsRaw ?? [])
+    .filter((n) => n.published_at)
+    .map((n) => ({ date: n.published_at!.slice(0, 10), title: n.title, url: n.url }));
 
   const signalHistoryItems: SignalHistoryItem[] = signals.map((s) => ({
     id: s.id,
@@ -133,7 +143,12 @@ export default async function SymbolPage({
       <div className="rounded-lg border border-border bg-surface p-3">
         <h2 className="mb-2 text-sm font-bold">کندل روزانه</h2>
         {candles.length > 0 ? (
-          <CandleChart candles={candles} signalMarkers={signalMarkers} />
+          <>
+            <CandleChart candles={candles} signalMarkers={signalMarkers} newsMarkers={newsMarkers} />
+            <p className="mt-2 text-[11px] text-muted">
+              فلش سبز/قرمز = سیگنال خرید/فروش، دایرهٔ آبی «خبر» = رویداد ژئوپلیتیک/اقتصادی (کل بازار، نه لزوماً این نماد) — کلیک برای لینک.
+            </p>
+          </>
         ) : (
           <p className="text-xs text-muted">هنوز کندلی برای این نماد ثبت نشده.</p>
         )}

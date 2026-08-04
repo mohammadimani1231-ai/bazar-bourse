@@ -6,6 +6,8 @@ import {
   createSeriesMarkers,
   CandlestickSeries,
   type UTCTimestamp,
+  type MouseEventParams,
+  type Time,
 } from "lightweight-charts";
 
 export interface CandlePoint {
@@ -21,6 +23,12 @@ export interface SignalMarker {
   direction: string;
 }
 
+export interface NewsMarker {
+  date: string;
+  title: string;
+  url: string;
+}
+
 function toTimestamp(dateStr: string): UTCTimestamp {
   return (Date.parse(dateStr + "T00:00:00Z") / 1000) as UTCTimestamp;
 }
@@ -28,9 +36,11 @@ function toTimestamp(dateStr: string): UTCTimestamp {
 export function CandleChart({
   candles,
   signalMarkers,
+  newsMarkers = [],
 }: {
   candles: CandlePoint[];
   signalMarkers: SignalMarker[];
+  newsMarkers?: NewsMarker[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -65,20 +75,43 @@ export function CandleChart({
       }));
     series.setData(data);
 
-    if (signalMarkers.length > 0) {
-      const markers = signalMarkers.map((m) => ({
-        time: toTimestamp(m.date),
-        position: (m.direction === "sell" ? "aboveBar" : "belowBar") as "aboveBar" | "belowBar",
-        color: m.direction === "sell" ? "#ef4444" : "#22c55e",
-        shape: (m.direction === "sell" ? "arrowDown" : "arrowUp") as "arrowDown" | "arrowUp",
-      }));
-      createSeriesMarkers(series, markers);
-    }
+    const signalMarkerList = signalMarkers.map((m) => ({
+      time: toTimestamp(m.date),
+      position: (m.direction === "sell" ? "aboveBar" : "belowBar") as "aboveBar" | "belowBar",
+      color: m.direction === "sell" ? "#ef4444" : "#22c55e",
+      shape: (m.direction === "sell" ? "arrowDown" : "arrowUp") as "arrowDown" | "arrowUp",
+    }));
+
+    // چند خبر هم‌روز ممکن است — روی همان زمان یکی نمایش داده می‌شود، لینکش در newsByTime نگه‌داشته می‌شود
+    const newsByTime = new Map<number, NewsMarker>();
+    for (const n of newsMarkers) newsByTime.set(toTimestamp(n.date), n);
+    const newsMarkerList = [...newsByTime.entries()].map(([time, n]) => ({
+      time: time as UTCTimestamp,
+      position: "aboveBar" as const,
+      color: "#6366f1",
+      shape: "circle" as const,
+      text: "خبر",
+      size: 0.6,
+      _news: n,
+    }));
+
+    const allMarkers = [...signalMarkerList, ...newsMarkerList].sort((a, b) => (a.time as number) - (b.time as number));
+    if (allMarkers.length > 0) createSeriesMarkers(series, allMarkers);
+
+    const clickHandler = (param: MouseEventParams<Time>) => {
+      if (param.time == null) return;
+      const news = newsByTime.get(param.time as number);
+      if (news) window.open(news.url, "_blank", "noopener,noreferrer");
+    };
+    chart.subscribeClick(clickHandler);
 
     chart.timeScale().fitContent();
 
-    return () => chart.remove();
-  }, [candles, signalMarkers]);
+    return () => {
+      chart.unsubscribeClick(clickHandler);
+      chart.remove();
+    };
+  }, [candles, signalMarkers, newsMarkers]);
 
   return <div ref={containerRef} style={{ height: 420, width: "100%" }} />;
 }

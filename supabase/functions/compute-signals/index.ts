@@ -40,6 +40,14 @@ Deno.serve(async () => {
       });
     }
 
+    const { data: regimeSetting } = await client
+      .from("settings")
+      .select("value")
+      .eq("key", "market_regime")
+      .maybeSingle();
+    const regime = (regimeSetting?.value as string | undefined) ?? "normal";
+    const marketRegimeNormal = regime === "normal";
+
     const { data: watchlist, error: watchlistError } = await client.from("watchlist").select("symbol");
     if (watchlistError) throw watchlistError;
     const symbols = (watchlist ?? []).map((w) => w.symbol as string);
@@ -133,7 +141,7 @@ Deno.serve(async () => {
         queueLocked: queueRow?.value === 1,
       };
 
-      const evaluation = evaluateSignal(rules, ctx, true);
+      const evaluation = evaluateSignal(rules, ctx, marketRegimeNormal);
       if (evaluation.direction === "none") continue;
 
       const { error: insertError } = await client.from("signals").insert({
@@ -141,7 +149,7 @@ Deno.serve(async () => {
         direction: evaluation.direction,
         score: evaluation.score,
         reasons: evaluation.reasons,
-        regime: "normal",
+        regime,
       });
       if (insertError) throw insertError;
       inserted.push({ symbol, direction: evaluation.direction, score: evaluation.score });
