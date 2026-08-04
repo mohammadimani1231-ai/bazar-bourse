@@ -43,6 +43,7 @@ export default async function OverviewPage() {
   const [
     { data: globalQuotesRaw },
     { data: tedpixRows },
+    { data: tedpixEqualWeightRows },
     { data: watchlist },
     { data: quotesRaw },
     { data: prevCandlesRaw },
@@ -53,6 +54,7 @@ export default async function OverviewPage() {
   ] = await Promise.all([
     supabase.from("global_quotes").select("asset, price, change_pct, captured_at").order("captured_at", { ascending: false }).limit(120),
     supabase.from("benchmark_candles").select("date, close").eq("asset", "tedpix").order("date", { ascending: false }).limit(2),
+    supabase.from("benchmark_candles").select("date, close").eq("asset", "tedpix_equal_weight").order("date", { ascending: false }).limit(2),
     supabase.from("watchlist").select("symbol, industry"),
     supabase.from("quotes").select("symbol, last_price, close_price, value, captured_at").order("captured_at", { ascending: false }).limit(200),
     supabase.from("daily_candles").select("symbol, date, final_price").lt("date", today).order("date", { ascending: false }).limit(200),
@@ -80,6 +82,13 @@ export default async function OverviewPage() {
   const tedpixChangePct =
     tedpixLatest?.close != null && tedpixPrev?.close
       ? ((tedpixLatest.close - tedpixPrev.close) / tedpixPrev.close) * 100
+      : null;
+
+  const tedpixEqualWeightLatest = tedpixEqualWeightRows?.[0] ?? null;
+  const tedpixEqualWeightPrev = tedpixEqualWeightRows?.[1] ?? null;
+  const tedpixEqualWeightChangePct =
+    tedpixEqualWeightLatest?.close != null && tedpixEqualWeightPrev?.close
+      ? ((tedpixEqualWeightLatest.close - tedpixEqualWeightPrev.close) / tedpixEqualWeightPrev.close) * 100
       : null;
 
   const quotesLatest = latestByKey(quotesRaw ?? [], "symbol");
@@ -138,6 +147,8 @@ export default async function OverviewPage() {
       <IndexSummary
         tedpix={tedpixLatest?.close ?? null}
         tedpixChangePct={tedpixChangePct}
+        tedpixEqualWeight={tedpixEqualWeightLatest?.close ?? null}
+        tedpixEqualWeightChangePct={tedpixEqualWeightChangePct}
         totalMarketValue={totalMarketValue}
       />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">

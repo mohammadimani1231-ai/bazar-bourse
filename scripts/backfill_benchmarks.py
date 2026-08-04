@@ -68,8 +68,10 @@ def fetch_with_retry(url: str, params: dict, retries: int = 3, timeout: int = 60
     raise last_error
 
 
-def tedpix_rows(cutoff_date: datetime) -> list[dict]:
-    data = tse.download_financial_indexes(symbols="شاخص كل", write_to_csv=False)
+def pytse_index_rows(asset: str, pytse_symbol: str, cutoff_date: datetime) -> list[dict]:
+    """هر شاخص رسمی TSE که pytse-client می‌شناسد (نه فقط شاخص کل) — نگاه کن به
+    pytse_client/data/indices_name.json برای اسم دقیق."""
+    data = tse.download_financial_indexes(symbols=pytse_symbol, write_to_csv=False)
     if not data:
         return []
     df = list(data.values())[0]
@@ -79,7 +81,7 @@ def tedpix_rows(cutoff_date: datetime) -> list[dict]:
     for _, r in df.iterrows():
         rows.append(
             {
-                "asset": "tedpix",
+                "asset": asset,
                 "date": r["date"].strftime("%Y-%m-%d"),
                 "open": float(r["open"]) if r["open"] == r["open"] else None,
                 "high": float(r["high"]) if r["high"] == r["high"] else None,
@@ -164,7 +166,14 @@ def main() -> None:
     total = 0
 
     print("-> tedpix (شاخص کل)")
-    rows = tedpix_rows(cutoff_date)
+    rows = pytse_index_rows("tedpix", "شاخص كل", cutoff_date)
+    if rows:
+        upsert_rows(supabase_url, service_role_key, rows)
+    total += len(rows)
+    print(f"  {len(rows)} ردیف")
+
+    print("-> tedpix_equal_weight (شاخص کل هم‌وزن)")
+    rows = pytse_index_rows("tedpix_equal_weight", "شاخص كل (هم وزن)", cutoff_date)
     if rows:
         upsert_rows(supabase_url, service_role_key, rows)
     total += len(rows)
