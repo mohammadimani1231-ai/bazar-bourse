@@ -96,15 +96,29 @@ Deno.serve(async () => {
       }
 
       if (rule.condition.type === "pipeline_health") {
-        const sinceIso = lastFiredAt ?? new Date(Date.now() - 60 * 60_000).toISOString();
-        const { data: errors } = await client
+        // فقط سورس‌هایی که «الان هم» خرابند، نه هر خطای گذرا در بازه. یک خطای موقت که در اجرای
+        // بعدی خودبه‌خود درست شده «مرگ پایپ‌لاین» نیست — بدون این شرط، هر ارور گذرا یک هشدار
+        // کاذب می‌ساخت (مشاهدهٔ واقعی: JWT issued at future سر هر ساعت، وقتی چند کرون هم‌زمان
+        // شلیک می‌کنند). evaluate-alerts هم از این چک کنار گذاشته می‌شود تا حلقهٔ خودارجاع
+        // (خودش ارور بدهد → دور بعد ارور خودش را گزارش کند) شکل نگیرد.
+        const windowStartIso = new Date(Date.now() - 60 * 60_000).toISOString();
+        const { data: recentRuns } = await client
           .from("pipeline_health")
-          .select("source")
-          .eq("status", "error")
-          .gt("checked_at", sinceIso);
+          .select("source, status, checked_at")
+          .gt("checked_at", windowStartIso)
+          .order("checked_at", { ascending: false });
 
-        if (errors && errors.length > 0) {
-          const sources = [...new Set(errors.map((e) => e.source as string))];
+        const latestStatusBySource = new Map<string, string>();
+        for (const run of recentRuns ?? []) {
+          const source = run.source as string;
+          if (source === "evaluate-alerts") continue;
+          if (!latestStatusBySource.has(source)) latestStatusBySource.set(source, run.status as string);
+        }
+        const sources = [...latestStatusBySource.entries()]
+          .filter(([, status]) => status === "error")
+          .map(([source]) => source);
+
+        if (sources.length > 0) {
           const message = formatPipelineDownAlert(sources, SITE_URL);
           const delivered = await sendTelegramMessage(message);
           await client.from("alert_log").insert({ rule_id: rule.id, payload: { sources }, delivered });

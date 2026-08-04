@@ -229,9 +229,24 @@ npx supabase secrets set TELEGRAM_BOT_TOKEN=your_token TELEGRAM_CHAT_ID=your_cha
 بدون این دو secret، `evaluate-alerts`/`send-alert-digest` طبیعی کار می‌کنند (قانون trigger می‌شود،
 در `alert_log` ثبت می‌شود) ولی `delivered=false` می‌ماند — خطا نمی‌دهند، فقط ارسال واقعی رخ نمی‌دهد.
 
-### باگ کشف‌شده حین این فاز
+اجرای دستی دایجست روی یک بازهٔ دلخواه (مثلاً کل جلسهٔ معاملاتی، بعد از بسته‌شدن بازار):
 
-BrsApi `Gold_Currency.php` واحد ارز (`currency`) را به تومان برمی‌گرداند ولی طلا/سکه (`gold`) را به
-ریال — یک ناسازگاری واقعی در خود API. از فاز ۱ تا این فاز `global_quotes.usd_irr` ده برابر کوچک‌تر از
-واقعیت بود (تیکر «دلار آزاد» در نمای کلی هم همینطور). رفع شد در `lib/transforms/globalQuote.ts` +
-مایگریشن یک‌بارهٔ اصلاح دادهٔ قبلی. جزئیات کامل در چک‌لیست فاز ۵ در CLAUDE.md.
+```bash
+curl -X POST ".../functions/v1/send-alert-digest" \
+  -H "Authorization: Bearer $ANON_KEY" -H "Content-Type: application/json" \
+  -d '{"sinceMinutes": 720}'
+```
+
+### دو باگ کشف‌شده حین این فاز
+
+**۱. واحد تومان/ریال:** BrsApi `Gold_Currency.php` واحد ارز (`currency`) را به تومان برمی‌گرداند ولی
+طلا/سکه (`gold`) را به ریال — یک ناسازگاری واقعی در خود API. از فاز ۱ تا این فاز
+`global_quotes.usd_irr` ده برابر کوچک‌تر از واقعیت بود (تیکر «دلار آزاد» در نمای کلی هم همینطور).
+رفع شد در `lib/transforms/globalQuote.ts` + مایگریشن یک‌بارهٔ اصلاح دادهٔ قبلی.
+
+**۲. حلقهٔ هشدار خودارجاع:** `evaluate-alerts` گاهی سر ساعت (هم‌زمانی چند کرون) با
+`JWT issued at future` خطا می‌خورد و ۱۰ دقیقه بعد خودش خطای خودش را به‌عنوان «مرگ پایپ‌لاین» گزارش
+می‌کرد — هر ساعت یک هشدار کاذب. حالا قانون `pipeline_health` فقط سورس‌هایی را گزارش می‌کند که
+**آخرین وضعیتشان** خطاست (نه هر خطای گذرا)، و خودش از این چک مستثنا شده.
+
+جزئیات کامل هر دو در چک‌لیست فاز ۵ در CLAUDE.md.

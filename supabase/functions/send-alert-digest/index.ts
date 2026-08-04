@@ -18,10 +18,22 @@ interface RuleRow {
  * می‌کند و در **یک** پیام تلگرام دایجست می‌کند — نه یک پیام جداگانه به ازای هر قانون
  * (طبق طراحی ضد نویز پرامپت فاز ۵).
  */
-Deno.serve(async () => {
+Deno.serve(async (req) => {
   const start = performance.now();
   const client = createServiceClient();
   const nowIso = new Date().toISOString();
+
+  // اجرای دستی می‌تواند پنجرهٔ نگاه‌به‌عقب را صریح بدهد (مثلاً برای دایجست کل یک جلسهٔ معاملاتی
+  // بعد از بسته‌شدن بازار). کرون بدنه نمی‌فرستد و از watermark/۷۰دقیقه استفاده می‌کند.
+  let overrideSinceMinutes: number | null = null;
+  try {
+    const body = await req.json();
+    if (typeof body?.sinceMinutes === "number" && body.sinceMinutes > 0) {
+      overrideSinceMinutes = body.sinceMinutes;
+    }
+  } catch {
+    // بدنهٔ خالی/غیر JSON = اجرای عادی کرون
+  }
 
   try {
     const { data: rulesRaw, error: rulesError } = await client
@@ -47,7 +59,9 @@ Deno.serve(async () => {
         .limit(1)
         .maybeSingle();
       const sinceIso =
-        lastLog?.fired_at ?? new Date(Date.now() - DIGEST_LOOKBACK_FALLBACK_MIN * 60_000).toISOString();
+        overrideSinceMinutes != null
+          ? new Date(Date.now() - overrideSinceMinutes * 60_000).toISOString()
+          : (lastLog?.fired_at ?? new Date(Date.now() - DIGEST_LOOKBACK_FALLBACK_MIN * 60_000).toISOString());
 
       const { data: rows } = await client
         .from("tabloo_metrics")
