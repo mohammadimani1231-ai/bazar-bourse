@@ -1,0 +1,155 @@
+import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
+import { tehranDayBounds } from "@/lib/time/tehranDay.ts";
+import { buildEqualWeightIndex, type DatedValue } from "@/lib/syntheticIndex.ts";
+import { crossCorrelation, bestLag } from "@/lib/stats.ts";
+import { RebaseChart, type SeriesInput } from "@/components/RebaseChart";
+import { CorrelationHeatmap, type AssetSeries } from "@/components/CorrelationHeatmap";
+import { LeadLagPanel, type LeadLagPair } from "@/components/LeadLagPanel";
+
+// دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
+export const dynamic = "force-dynamic";
+
+const REFINERY_SYMBOLS = ["شپنا", "شبندر", "شتران", "شبریز", "شسپا", "شراز"];
+const METALS_SYMBOLS = ["فملی", "میدکو", "فایرا", "سیسکو", "هرمز", "ارفع", "کاوه", "آلومینا"];
+
+function downsampleDaily(rows: { price: number | null; captured_at: string }[]): DatedValue[] {
+  const byDay = new Map<string, { value: number; capturedAt: string }>();
+  for (const row of rows) {
+    if (row.price == null) continue;
+    const date = tehranDayBounds(new Date(row.captured_at)).date;
+    const existing = byDay.get(date);
+    if (!existing || row.captured_at > existing.capturedAt) {
+      byDay.set(date, { value: row.price, capturedAt: row.captured_at });
+    }
+  }
+  return [...byDay.entries()].map(([date, v]) => ({ date, value: v.value })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+const PAGE_SIZE = 1000;
+
+/** PostgREST سقف پیش‌فرض ۱۰۰۰ ردیف دارد؛ .limit() بزرگ‌تر را ساکت نادیده می‌گیرد — باید صفحه‌بندی کرد. */
+async function fetchAllPages<T>(
+  fetchPage: (from: number, to: number) => Promise<T[]>,
+): Promise<T[]> {
+  const all: T[] = [];
+  let from = 0;
+  for (;;) {
+    const page = await fetchPage(from, from + PAGE_SIZE - 1);
+    all.push(...page);
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  return all;
+}
+
+async function fetchSymbolCloses(supabase: ReturnType<typeof createServerSupabaseClient>, symbol: string): Promise<DatedValue[]> {
+  const rows = await fetchAllPages(async (from, to) => {
+    const { data } = await supabase
+      .from("daily_candles")
+      .select("date, final_price")
+      .eq("symbol", symbol)
+      .order("date", { ascending: true })
+      .range(from, to);
+    return data ?? [];
+  });
+  return rows.filter((r) => r.final_price != null).map((r) => ({ date: r.date, value: r.final_price as number }));
+}
+
+async function fetchBenchmarkCandles(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  asset: string,
+): Promise<DatedValue[]> {
+  const rows = await fetchAllPages(async (from, to) => {
+    const { data } = await supabase
+      .from("benchmark_candles")
+      .select("date, close")
+      .eq("asset", asset)
+      .order("date", { ascending: true })
+      .range(from, to);
+    return data ?? [];
+  });
+  return rows.filter((r) => r.close != null).map((r) => ({ date: r.date, value: r.close as number }));
+}
+
+async function fetchGlobalQuoteHistory(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  asset: string,
+): Promise<{ price: number | null; captured_at: string }[]> {
+  return fetchAllPages(async (from, to) => {
+    const { data } = await supabase
+      .from("global_quotes")
+      .select("price, captured_at")
+      .eq("asset", asset)
+      .order("captured_at", { ascending: true })
+      .range(from, to);
+    return data ?? [];
+  });
+}
+
+export default async function GlobalPage() {
+  const supabase = createServerSupabaseClient();
+
+  const [tedpix, usdIrr, goldIrr, brentRaw, goldOunceRaw, dxyRaw, refineryCloses, metalsCloses] = await Promise.all([
+    fetchBenchmarkCandles(supabase, "tedpix"),
+    fetchBenchmarkCandles(supabase, "usd_irr"),
+    fetchBenchmarkCandles(supabase, "gold_18k"),
+    fetchGlobalQuoteHistory(supabase, "brent"),
+    fetchGlobalQuoteHistory(supabase, "gold_ounce"),
+    fetchGlobalQuoteHistory(supabase, "dxy"),
+    Promise.all(REFINERY_SYMBOLS.map((s) => fetchSymbolCloses(supabase, s))),
+    Promise.all(METALS_SYMBOLS.map((s) => fetchSymbolCloses(supabase, s))),
+  ]);
+
+  const brent = downsampleDaily(brentRaw);
+  const goldOunce = downsampleDaily(goldOunceRaw);
+  const dxy = downsampleDaily(dxyRaw);
+
+  const refineryIndex = buildEqualWeightIndex(refineryCloses);
+  const metalsIndex = buildEqualWeightIndex(metalsCloses);
+
+  const rebaseSeries: SeriesInput[] = [
+    { name: "شاخص کل", color: "#6366f1", points: tedpix },
+    { name: "برنت", color: "#f59e0b", points: brent },
+    { name: "انس طلا", color: "#eab308", points: goldOunce },
+    { name: "دلار آزاد", color: "#22c55e", points: usdIrr },
+    { name: "DXY", color: "#ef4444", points: dxy },
+  ];
+
+  const heatmapAssets: AssetSeries[] = [
+    { name: "شاخص کل", points: tedpix },
+    { name: "دلار آزاد", points: usdIrr },
+    { name: "طلای ۱۸", points: goldIrr },
+    { name: "برنت", points: brent },
+    { name: "انس طلا", points: goldOunce },
+    { name: "DXY", points: dxy },
+  ];
+
+  function buildPair(label: string, leader: DatedValue[], follower: DatedValue[]): LeadLagPair {
+    const followerByDate = new Map(follower.map((p) => [p.date, p.value]));
+    const commonDates = leader.map((p) => p.date).filter((d) => followerByDate.has(d)).sort();
+    const leaderByDate = new Map(leader.map((p) => [p.date, p.value]));
+    const leaderVals = commonDates.map((d) => leaderByDate.get(d)!);
+    const followerVals = commonDates.map((d) => followerByDate.get(d)!);
+    if (leaderVals.length < 40) return { label, points: [], best: null };
+    const points = crossCorrelation(leaderVals, followerVals, 15);
+    return { label, points, best: bestLag(points) };
+  }
+
+  const leadLagPairs: LeadLagPair[] = [
+    buildPair("برنت → شاخص پالایشی (ترکیب هم‌وزن نمادهای صنعت پالایش در واچ‌لیست)", brent, refineryIndex),
+    buildPair("دلار آزاد → فلزات اساسی (ترکیب هم‌وزن نمادهای صنعت فلزات در واچ‌لیست)", usdIrr, metalsIndex),
+  ];
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-lg font-bold">نمای جهانی</h1>
+      <RebaseChart series={rebaseSeries} />
+      <CorrelationHeatmap assets={heatmapAssets} />
+      <LeadLagPanel pairs={leadLagPairs} />
+      <p className="text-[11px] text-muted">
+        برنت/انس طلا/DXY از منبع global_quotes می‌آیند که به‌تازگی فعال شده — تا چند هفتهٔ آینده که
+        تاریخچهٔ بیشتری جمع شود، نمودارهای بالا کامل‌تر می‌شوند.
+      </p>
+    </div>
+  );
+}
