@@ -7,6 +7,7 @@ import { formatJalaliDateTime } from "@/lib/jalali.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { SignalExplainButton } from "@/components/SignalExplainButton";
 
 export interface RuleEvaluationLike {
   rule: string;
@@ -140,7 +141,7 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                     {expanded && (
                       <tr key={`${row.id}-detail`} className="border-b border-border/60 bg-surface-2/40">
                         <td colSpan={5} className="p-2">
-                          <div className="flex flex-wrap gap-1">
+                          <div className="mb-2 flex flex-wrap items-center gap-1">
                             {triggered.length === 0 ? (
                               <span className="text-muted">فاکتوری trigger نشده</span>
                             ) : (
@@ -151,6 +152,7 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                                 </span>
                               ))
                             )}
+                            <SignalExplainButton reasons={row.reasons} />
                           </div>
                         </td>
                       </tr>

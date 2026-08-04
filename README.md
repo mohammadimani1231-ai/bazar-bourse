@@ -250,3 +250,31 @@ curl -X POST ".../functions/v1/send-alert-digest" \
 **آخرین وضعیتشان** خطاست (نه هر خطای گذرا)، و خودش از این چک مستثنا شده.
 
 جزئیات کامل هر دو در چک‌لیست فاز ۵ در CLAUDE.md.
+
+## لایه AI — بریف روزانه (فاز ۶)
+
+`daily-brief` (کرون `0 5 * * 6,0,1,2,3` UTC = ۸:۳۰ تهران، قبل بازگشایی) یک JSON ساخت‌یافته از ۷
+بخش دیتابیس می‌سازد (global، domestic، tension_index/market_regime، market، signals، news،
+correlation_breaks)، با Claude (`claude-sonnet-5`) تحلیل می‌کند، خروجی را با zod اعتبارسنجی
+می‌کند (یک retry خودکار)، و در `ai_briefs` ذخیره می‌کند. LLM هرگز سیگنال صادر نمی‌کند — فقط زمینه
+تفسیر می‌کند (طبق قید معماری پروژه).
+
+نمایش: کارت خلاصه در نمای کلی + آرشیو کامل در `/briefs` با برچسب اطمینان رنگی و tooltip روی هر
+ادعا که دادهٔ خام پشتش را نشان می‌دهد. دکمهٔ «توضیح بده» در `/signals` فاکتورهای هر سیگنال را به
+فارسی ساده ترجمه می‌کند — **بدون LLM**، فقط template متنی (`lib/signalExplain.ts`).
+
+### راه‌اندازی
+
+```bash
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+```
+
+نیاز به billing/credit فعال در حساب Anthropic دارد (Plans & Billing در console.anthropic.com)،
+وگرنه فراخوانی با خطای واضح «credit balance too low» شکست می‌خورد (نه توهم/پاسخ ساختگی).
+
+### نکتهٔ فنی: zod در Deno
+
+`lib/briefSchema.ts` بین Next.js و Edge Function مشترک است و `zod` را بدون پیشوند import می‌کند
+(`import { z } from "zod"`) تا سمت Next.js عادی کار کند. برای اینکه Deno هم همین import بدون‌پیشوند
+را بشناسد، `supabase/functions/deno.json` یک import map دارد (`"zod": "npm:zod@^4"`) که در
+`config.toml` زیر `[functions.daily-brief]` وصل شده — روی هر `deploy` بعدی خودکار اعمال می‌شود.

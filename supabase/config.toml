@@ -371,6 +371,11 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.daily-brief]
+# zod را در lib/briefSchema.ts (مشترک با Next.js) بدون npm: prefix ایمپورت می‌کنیم تا سمت
+# Next.js هم کار کند — این import map همان بارهٔ "zod" را برای Deno به npm:zod نگاشت می‌کند.
+import_map = "./functions/deno.json"
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

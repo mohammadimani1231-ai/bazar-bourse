@@ -7,7 +7,7 @@ import { IndustryRanking, type IndustryFlow } from "@/components/IndustryRanking
 import { RegimeSwitch } from "@/components/RegimeSwitch";
 import { TensionGauge } from "@/components/TensionGauge";
 import { NewsFeed, type NewsItem } from "@/components/NewsFeed";
-import { AiBriefCard } from "@/components/AiBriefCard";
+import { AiBriefCard, type LatestBrief } from "@/components/AiBriefCard";
 import type { MarketRegime } from "@/lib/marketRegime.ts";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
@@ -51,6 +51,7 @@ export default async function OverviewPage() {
     { data: tensionRows },
     { data: regimeSetting },
     { data: newsRaw },
+    { data: latestBriefRaw },
   ] = await Promise.all([
     supabase.from("global_quotes").select("asset, price, change_pct, captured_at").order("captured_at", { ascending: false }).limit(120),
     supabase.from("benchmark_candles").select("date, close").eq("asset", "tedpix").order("date", { ascending: false }).limit(2),
@@ -62,6 +63,7 @@ export default async function OverviewPage() {
     supabase.from("global_quotes").select("price, captured_at").eq("asset", "tension_index").order("captured_at", { ascending: false }).limit(1),
     supabase.from("settings").select("value").eq("key", "market_regime").maybeSingle(),
     supabase.from("news_items").select("id, title, source, url, matched_keywords, published_at").order("published_at", { ascending: false }).limit(15),
+    supabase.from("ai_briefs").select("brief, input_snapshot, created_at").order("created_at", { ascending: false }).limit(1),
   ]);
 
   const globalQuotesLatest = latestByKey(globalQuotesRaw ?? [], "asset");
@@ -141,6 +143,11 @@ export default async function OverviewPage() {
     publishedAt: n.published_at,
   }));
 
+  const latestBriefRow = latestBriefRaw?.[0] ?? null;
+  const latestBrief: LatestBrief | null = latestBriefRow
+    ? { brief: latestBriefRow.brief, inputSnapshot: latestBriefRow.input_snapshot, createdAt: latestBriefRow.created_at }
+    : null;
+
   return (
     <div className="flex flex-col gap-4">
       <GlobalTickerBar items={tickerItems} />
@@ -160,7 +167,7 @@ export default async function OverviewPage() {
           <IndustryRanking items={industryFlows} />
           <TensionGauge value={tensionLatest?.price ?? null} capturedAt={tensionLatest?.captured_at ?? null} />
           <RegimeSwitch current={regime} />
-          <AiBriefCard />
+          <AiBriefCard latest={latestBrief} />
         </div>
       </div>
     </div>
