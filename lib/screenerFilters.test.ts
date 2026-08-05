@@ -8,6 +8,7 @@ import {
 const rows: ScreenerRow[] = [
   {
     symbol: "فملی",
+    companyName: "ملی صنایع مس ایران",
     industry: "فلزات اساسی",
     tradeValue: 5_000_000_000,
     rsi14: 25,
@@ -19,6 +20,7 @@ const rows: ScreenerRow[] = [
   },
   {
     symbol: "خودرو",
+    companyName: "ایران خودرو",
     industry: "خودرو و ساخت قطعات",
     tradeValue: 1_000_000_000,
     rsi14: 60,

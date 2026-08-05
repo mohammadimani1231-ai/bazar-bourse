@@ -85,6 +85,7 @@ export function ScreenerClient({
   const csv = () =>
     toCsv(filtered, [
       { header: "نماد", accessor: (r) => r.symbol },
+      { header: "نام شرکت", accessor: (r) => r.companyName ?? "" },
       { header: "صنعت", accessor: (r) => r.industry },
       { header: "ارزش معاملات", accessor: (r) => r.tradeValue },
       { header: "RSI14", accessor: (r) => r.rsi14 },
@@ -248,6 +249,7 @@ export function ScreenerClient({
             <thead>
               <tr className="border-b border-border text-muted">
                 <th className="p-2 text-right">نماد</th>
+                <th className="p-2 text-right">نام شرکت</th>
                 <th className="p-2 text-right">صنعت</th>
                 <th className="p-2 text-right">رتبه مرکب</th>
                 <th className="p-2 text-right">RSI14</th>
@@ -264,11 +266,12 @@ export function ScreenerClient({
                       {row.symbol}
                     </Link>
                   </td>
+                  <td className="p-2 text-muted">{row.companyName ?? "—"}</td>
                   <td className="p-2 text-muted">{row.industry}</td>
-                  <td className="ltr-nums p-2">{formatFaNumber(row.compositeRank)}</td>
-                  <td className="ltr-nums p-2">{formatFaNumber(row.rsi14)}</td>
-                  <td className="ltr-nums p-2">{formatFaCompactRial(row.tradeValue)}</td>
-                  <td className="ltr-nums p-2">{formatFaNumber(row.buyerPower, 2)}</td>
+                  <td className="ltr-nums p-2 text-right">{formatFaNumber(row.compositeRank)}</td>
+                  <td className="ltr-nums p-2 text-right">{formatFaNumber(row.rsi14)}</td>
+                  <td className="ltr-nums p-2 text-right">{formatFaCompactRial(row.tradeValue)}</td>
+                  <td className="ltr-nums p-2 text-right">{formatFaNumber(row.buyerPower, 2)}</td>
                   <td className="p-2">
                     <button
                       onClick={() => handleAddToWatchlist(row)}

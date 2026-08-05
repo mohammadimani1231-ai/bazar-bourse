@@ -1,5 +1,6 @@
 export interface ScreenerRow {
   symbol: string;
+  companyName: string | null;
   industry: string;
   tradeValue: number | null;
   rsi14: number | null;

@@ -16,7 +16,7 @@ export default async function ScreenerPage() {
   const supabase = createServerSupabaseClient();
 
   const [{ data: watchlist }, { data: quotesRaw }, { data: tablooRaw }, { data: presetsRaw }] = await Promise.all([
-    supabase.from("watchlist").select("symbol, industry"),
+    supabase.from("watchlist").select("symbol, industry, company_name"),
     supabase.from("quotes").select("symbol, value, captured_at").order("captured_at", { ascending: false }).limit(200),
     supabase
       .from("tabloo_metrics")
@@ -29,6 +29,7 @@ export default async function ScreenerPage() {
 
   const symbols = (watchlist ?? []).map((w) => w.symbol as string);
   const industryOf = new Map((watchlist ?? []).map((w) => [w.symbol, w.industry ?? "سایر"]));
+  const companyNameOf = new Map((watchlist ?? []).map((w) => [w.symbol, w.company_name as string | null]));
 
   const tradeValueBySymbol = new Map<string, number>();
   for (const q of quotesRaw ?? []) {
@@ -68,6 +69,7 @@ export default async function ScreenerPage() {
     const scoreResult = rawScoreBySymbol.get(symbol);
     return {
       symbol,
+      companyName: companyNameOf.get(symbol) ?? null,
       industry: industryOf.get(symbol) ?? "سایر",
       tradeValue: tradeValueBySymbol.get(symbol) ?? null,
       rsi14: scoreResult?.components.rsi14 ?? null,
