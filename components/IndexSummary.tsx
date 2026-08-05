@@ -12,14 +12,16 @@ function IndexCard({
   return (
     <div className="rounded-lg border border-border bg-surface p-3">
       <p className="text-xs text-muted">{label}</p>
-      <p className="ltr-nums text-lg font-bold">{formatFaNumber(value)}</p>
-      <p
-        className={`ltr-nums text-xs ${
-          changePct == null ? "text-muted" : changePct >= 0 ? "text-up" : "text-down"
-        }`}
-      >
-        {formatFaPercent(changePct)}
-      </p>
+      <div className="flex items-baseline gap-2">
+        <p className="ltr-nums text-2xl font-bold">{formatFaNumber(value)}</p>
+        <p
+          className={`ltr-nums text-sm font-bold ${
+            changePct == null ? "text-muted" : changePct >= 0 ? "text-up" : "text-down"
+          }`}
+        >
+          {formatFaPercent(changePct)}
+        </p>
+      </div>
     </div>
   );
 }
@@ -43,7 +45,7 @@ export function IndexSummary({
       <IndexCard label="شاخص هم‌وزن" value={tedpixEqualWeight} changePct={tedpixEqualWeightChangePct} />
       <div className="rounded-lg border border-border bg-surface p-3">
         <p className="text-xs text-muted">ارزش معاملات بازار (امروز)</p>
-        <p className="ltr-nums text-lg font-bold">{formatFaCompactRial(totalMarketValue)}</p>
+        <p className="ltr-nums text-2xl font-bold">{formatFaCompactRial(totalMarketValue)}</p>
       </div>
     </div>
   );

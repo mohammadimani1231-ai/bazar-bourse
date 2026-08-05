@@ -38,30 +38,43 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
     [items],
   );
 
+  // گروه‌بندی به‌تفکیک صنعت (الگوی Finviz — نه treemap تخت از همهٔ نمادها؛ هر صنعت یک خوشه
+  // با لیبل خودش، رنگ فقط روی برگ‌های نماد اعمال می‌شود نه پس‌زمینهٔ خوشه).
   const option = useMemo(() => {
-    const data = items.map((item) => {
-      const ratio =
-        mode === "money_flow"
-          ? (item.moneyFlow ?? 0) / maxAbsMoneyFlow
-          : (item.changePct ?? 0) / 5; // ±۵٪ برای اشباع کامل رنگ
-      return {
-        name: item.symbol,
-        value: item.tradeValue,
-        itemStyle: { color: mixColor(ratio) },
-        industry: item.industry,
-        moneyFlow: item.moneyFlow,
-        changePct: item.changePct,
-      };
-    });
+    const byIndustry = new Map<string, typeof items>();
+    for (const item of items) {
+      const list = byIndustry.get(item.industry) ?? [];
+      list.push(item);
+      byIndustry.set(item.industry, list);
+    }
+
+    const data = [...byIndustry.entries()].map(([industry, symbols]) => ({
+      name: industry,
+      itemStyle: { color: CHART_COLORS.surface2 },
+      children: symbols.map((item) => {
+        const ratio = mode === "money_flow" ? (item.moneyFlow ?? 0) / maxAbsMoneyFlow : (item.changePct ?? 0) / 5; // ±۵٪ برای اشباع کامل رنگ
+        const inlineMetric = mode === "money_flow" ? formatFaCompactRial(item.moneyFlow) : formatFaPercent(item.changePct);
+        return {
+          name: `${item.symbol}\n${inlineMetric}`,
+          value: item.tradeValue,
+          itemStyle: { color: mixColor(ratio) },
+          symbol: item.symbol,
+          industry: item.industry,
+          moneyFlow: item.moneyFlow,
+          changePct: item.changePct,
+        };
+      }),
+    }));
 
     return {
       backgroundColor: "transparent",
       tooltip: {
-        formatter: (p: { data: { name: string; industry: string; value: number; moneyFlow: number | null; changePct: number | null } }) => {
+        formatter: (p: { data: { symbol?: string; industry?: string; value?: number; moneyFlow?: number | null; changePct?: number | null } }) => {
           const d = p.data;
+          if (!d.symbol) return "";
           const flowText =
             d.moneyFlow == null ? "—" : formatFaCompactRial(d.moneyFlow) + (d.moneyFlow >= 0 ? " ورودی" : " خروجی");
-          return `<b>${d.name}</b> — ${d.industry}<br/>ارزش معاملات: ${formatFaCompactRial(d.value)}<br/>ورود پول حقیقی: ${flowText}<br/>تغییر قیمت: ${formatFaPercent(d.changePct)}`;
+          return `<b>${d.symbol}</b> — ${d.industry}<br/>ارزش معاملات: ${formatFaCompactRial(d.value)}<br/>ورود پول حقیقی: ${flowText}<br/>تغییر قیمت: ${formatFaPercent(d.changePct)}`;
         },
       },
       series: [
@@ -70,9 +83,26 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
           roam: false,
           nodeClick: false,
           breadcrumb: { show: false },
-          label: { color: CHART_COLORS.foreground, fontFamily: "var(--font-vazirmatn)", fontSize: 12 },
-          upperLabel: { show: false },
-          itemStyle: { borderColor: "var(--background)", borderWidth: 1, gapWidth: 1 },
+          leafDepth: 2,
+          label: {
+            color: CHART_COLORS.foreground,
+            fontFamily: "var(--font-vazirmatn)",
+            fontSize: 11,
+            lineHeight: 15,
+          },
+          upperLabel: {
+            show: true,
+            height: 22,
+            color: CHART_COLORS.muted,
+            fontFamily: "var(--font-vazirmatn)",
+            fontSize: 11,
+            fontWeight: "bold" as const,
+          },
+          itemStyle: { borderColor: CHART_COLORS.border, borderWidth: 2, gapWidth: 2 },
+          levels: [
+            { itemStyle: { borderWidth: 0, gapWidth: 2 } },
+            { itemStyle: { borderColor: "var(--background)", borderWidth: 1, gapWidth: 1 } },
+          ],
           data,
         },
       ],
@@ -112,8 +142,9 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
         option={option}
         style={{ height: 420 }}
         onEvents={{
-          click: (params: { name?: string }) => {
-            if (params.name) router.push(`/symbol/${encodeURIComponent(params.name)}`);
+          click: (params: { data?: { symbol?: string } }) => {
+            const symbol = params.data?.symbol;
+            if (symbol) router.push(`/symbol/${encodeURIComponent(symbol)}`);
           },
         }}
       />
