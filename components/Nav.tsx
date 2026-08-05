@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/signals", label: "سیگنال‌ها" },
   { href: "/screener", label: "اسکرینر" },
   { href: "/global", label: "نمای جهانی" },
+  { href: "/reports", label: "گزارش‌ها" },
   { href: "/health", label: "سلامت" },
 ];
 

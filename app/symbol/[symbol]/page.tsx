@@ -6,6 +6,7 @@ import { CandleChart, type CandlePoint, type SignalMarker, type NewsMarker } fro
 import { IntradayFlowChart, type IntradayPoint } from "@/components/IntradayFlowChart";
 import { QueueFlags, type QueueFlagsData } from "@/components/QueueFlags";
 import { SignalHistoryList, type SignalHistoryItem } from "@/components/SignalHistoryList";
+import { GenerateSymbolReportButton } from "@/components/GenerateSymbolReportButton";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -138,7 +139,10 @@ export default async function SymbolPage({
           capturedAt: latestQuote?.captured_at ?? null,
         }}
       />
-      <p className="text-xs text-muted">صنعت: {watchlistRow.industry ?? "نامشخص"}</p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted">صنعت: {watchlistRow.industry ?? "نامشخص"}</p>
+        <GenerateSymbolReportButton symbol={symbol} />
+      </div>
 
       <div className="rounded-lg border border-border bg-surface p-3">
         <h2 className="mb-2 text-sm font-bold">کندل روزانه</h2>

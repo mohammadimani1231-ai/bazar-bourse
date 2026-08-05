@@ -6,7 +6,9 @@ function stripBrackets(val: unknown): unknown {
   return typeof val === "string" ? val.replace(/^\[|\]$/g, "").trim() : val;
 }
 
-const ConfidenceLevel = z.preprocess(stripBrackets, z.enum(["قطعی از داده", "استنتاج قوی", "گمانه"]));
+// export می‌شود چون lib/weeklyBriefSchema.ts (فاز ۷) هم به همین سطوح اطمینان نیاز دارد —
+// طبق قاعدهٔ «بدون پیاده‌سازی موازی»
+export const ConfidenceLevel = z.preprocess(stripBrackets, z.enum(["قطعی از داده", "استنتاج قوی", "گمانه"]));
 const MarketMood = z.enum(["مثبت", "خنثی", "منفی"]);
 const SignalVerdict = z.enum(["هم‌راستا", "خلاف زمینه"]);
 

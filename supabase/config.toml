@@ -376,6 +376,10 @@ allow_dynamic_registration = false
 # Next.js هم کار کند — این import map همان بارهٔ "zod" را برای Deno به npm:zod نگاشت می‌کند.
 import_map = "./functions/deno.json"
 
+[functions.weekly-report]
+# همین import map (zod + date-fns-jalali) چون lib/jalali.ts و lib/weeklyBriefSchema.ts را import می‌کند.
+import_map = "./functions/deno.json"
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
