@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Activity, Filter, Globe, FileText, HeartPulse, LineChart } from "lucide-react";
+import { LayoutDashboard, Activity, Filter, Globe, FileText, HeartPulse, LineChart, Briefcase, Shield } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/", label: "نمای کلی", icon: LayoutDashboard },
   { href: "/signals", label: "سیگنال‌ها", icon: Activity },
   { href: "/screener", label: "اسکرینر", icon: Filter },
+  { href: "/portfolio", label: "پرتفوی", icon: Briefcase },
   { href: "/global", label: "نمای جهانی", icon: Globe },
   { href: "/reports", label: "گزارش‌ها", icon: FileText },
+  { href: "/settings/risk", label: "تنظیمات ریسک", icon: Shield },
   { href: "/health", label: "سلامت", icon: HeartPulse },
 ];
 
