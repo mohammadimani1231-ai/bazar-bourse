@@ -56,10 +56,19 @@ export async function fetchBrsApiSymbol(symbol: string, apiKey: string): Promise
 /**
  * همهٔ نمادهای بورس/فرابورس در یک درخواست (سهمیهٔ روزانه بسیار محدودتر از تک‌نماد است،
  * پس collect-tse باید همین را صدا بزند و سمت کلاینت فیلتر کند، نه N بار Symbol.php).
+ *
+ * timeout/retry بالاتر از پیش‌فرض fetchWithRetry: دیده شده (۲۰۲۶-۰۸-۰۵ زنده، حین ساعات بازار)
+ * که این endpoint مشخصاً از IP شبکهٔ Supabase Edge Function گاهی چند دقیقه پیاپی روی تایم‌اوت
+ * ۱۵ ثانیه‌ای/۱ retry شکست می‌خورد، در حالی‌که از IPهای دیگر (این سندباکس) در ~۳۰۰ms جواب می‌دهد —
+ * همان الگوی شناخته‌شدهٔ ناپایداری BrsApi از IPهای ابری خاص (قبلاً روی History.php/
+ * Gold_Currency_Pro.php هم دیده شده، مستند در CLAUDE.md بند منابع دیتا)، این‌بار روی این
+ * endpoint حجم‌بالا. ۳ تلاش با
+ * timeout ۲۰ ثانیه و backoff ۱ ثانیه‌ای (بدترین حالت ~۶۳ ثانیه، امن زیر بازهٔ کرون ۲ دقیقه‌ای)
+ * را در برابر یک بلیپ گذرا بسیار مقاوم‌تر می‌کند بدون گیرکردن پایدار روی یک قطعی واقعی طولانی.
  */
 export async function fetchBrsApiAllSymbols(apiKey: string): Promise<BrsApiRawSymbolRow[]> {
   const url = `${BRSAPI_ALL_SYMBOLS_URL}?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetchWithRetry(url, {}, { timeoutMs: 15000 });
+  const res = await fetchWithRetry(url, {}, { timeoutMs: 20000, retries: 2, backoffMs: 1000 });
   return (await res.json()) as BrsApiRawSymbolRow[];
 }
 
