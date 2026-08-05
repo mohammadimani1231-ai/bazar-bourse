@@ -10,9 +10,54 @@ import {
 } from "@/lib/screenerFilters.ts";
 import { formatFaCompactRial, formatFaNumber } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
-import { RangeSliderFilter } from "@/components/RangeSliderFilter";
+import { FilterDropdown, type FilterDropdownOption } from "@/components/FilterDropdown";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { savePreset, addToWatchlist } from "@/app/screener/actions.ts";
+
+const ALL: FilterDropdownOption = { label: "همه", range: { min: null, max: null } };
+
+const TRADE_VALUE_OPTIONS: FilterDropdownOption[] = [
+  ALL,
+  { label: "زیر ۱ میلیارد", range: { min: null, max: 1_000_000_000 } },
+  { label: "۱ تا ۱۰ میلیارد", range: { min: 1_000_000_000, max: 10_000_000_000 } },
+  { label: "۱۰ تا ۱۰۰ میلیارد", range: { min: 10_000_000_000, max: 100_000_000_000 } },
+  { label: "بالای ۱۰۰ میلیارد", range: { min: 100_000_000_000, max: null } },
+];
+
+const RSI_OPTIONS: FilterDropdownOption[] = [
+  ALL,
+  { label: "اشباع فروش (زیر ۳۰)", range: { min: null, max: 30 } },
+  { label: "خنثی (۳۰ تا ۷۰)", range: { min: 30, max: 70 } },
+  { label: "اشباع خرید (بالای ۷۰)", range: { min: 70, max: null } },
+];
+
+const COMPOSITE_RANK_OPTIONS: FilterDropdownOption[] = [
+  ALL,
+  { label: "ضعیف (زیر ۳۳)", range: { min: null, max: 33 } },
+  { label: "متوسط (۳۳ تا ۶۶)", range: { min: 33, max: 66 } },
+  { label: "قوی (بالای ۶۶)", range: { min: 66, max: null } },
+];
+
+const MA_DISTANCE_OPTIONS: FilterDropdownOption[] = [
+  ALL,
+  { label: "زیر خط (منفی)", range: { min: null, max: 0 } },
+  { label: "نزدیک خط (±۲٪)", range: { min: -2, max: 2 } },
+  { label: "بالای خط (مثبت)", range: { min: 0, max: null } },
+];
+
+const BUYER_POWER_OPTIONS: FilterDropdownOption[] = [
+  ALL,
+  { label: "ضعیف (زیر ۱)", range: { min: null, max: 1 } },
+  { label: "متوسط (۱ تا ۲)", range: { min: 1, max: 2 } },
+  { label: "قوی (بالای ۲)", range: { min: 2, max: null } },
+];
+
+const MONEY_FLOW_OPTIONS: FilterDropdownOption[] = [
+  ALL,
+  { label: "خروج پول (منفی)", range: { min: null, max: 0 } },
+  { label: "ورود پول (مثبت)", range: { min: 0, max: null } },
+  { label: "ورود قوی (بالای ۱ میلیارد)", range: { min: 1_000_000_000, max: null } },
+];
 
 export interface PresetRow {
   id: number;
@@ -20,26 +65,27 @@ export interface PresetRow {
   filters: ScreenerFilters;
 }
 
-export interface FilterBounds {
-  tradeValue: [number, number];
-  rsi: [number, number];
-  compositeRank: [number, number];
-  maDistance: [number, number];
-  buyerPower: [number, number];
-  moneyFlow: [number, number];
-}
-
 type Tab = "descriptive" | "technical" | "tabloo";
+
+const TAB_FILTER_COUNTS: Record<Tab, (f: ScreenerFilters) => number> = {
+  descriptive: (f) => (f.industries.length > 0 ? 1 : 0) + (f.tradeValue.min != null || f.tradeValue.max != null ? 1 : 0),
+  technical: (f) =>
+    (f.rsi.min != null || f.rsi.max != null ? 1 : 0) +
+    (f.compositeRank.min != null || f.compositeRank.max != null ? 1 : 0) +
+    (f.maDistance.min != null || f.maDistance.max != null ? 1 : 0),
+  tabloo: (f) =>
+    (f.buyerPower.min != null || f.buyerPower.max != null ? 1 : 0) +
+    (f.moneyFlow.min != null || f.moneyFlow.max != null ? 1 : 0) +
+    (f.suspiciousVolume !== "any" ? 1 : 0),
+};
 
 export function ScreenerClient({
   rows,
   industries,
-  bounds,
   presets,
 }: {
   rows: ScreenerRow[];
   industries: string[];
-  bounds: FilterBounds;
   presets: PresetRow[];
 }) {
   const [tab, setTab] = useState<Tab>("descriptive");
@@ -120,15 +166,25 @@ export function ScreenerClient({
                 ["technical", "تکنیکال"],
                 ["tabloo", "تابلوخوانی"],
               ] as [Tab, string][]
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`rounded-md px-3 py-1.5 ${tab === key ? "bg-accent text-white" : "text-muted hover:bg-surface-2"}`}
-              >
-                {label}
-              </button>
-            ))}
+            ).map(([key, label]) => {
+              const count = TAB_FILTER_COUNTS[key](filters);
+              return (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 ${tab === key ? "bg-accent text-white" : "text-muted hover:bg-surface-2"}`}
+                >
+                  {label}
+                  {count > 0 && (
+                    <span
+                      className={`ltr-nums rounded-full px-1.5 text-[10px] ${tab === key ? "bg-white/25" : "bg-accent/20 text-accent"}`}
+                    >
+                      {count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
           <div className="mr-auto flex items-center gap-2">
             <select
@@ -169,7 +225,7 @@ export function ScreenerClient({
         {tab === "descriptive" && (
           <div className="flex flex-col gap-3">
             <div>
-              <p className="mb-1 text-xs text-muted">صنعت</p>
+              <p className="mb-1 text-[11px] text-muted">صنعت</p>
               <div className="flex flex-wrap gap-1">
                 {industries.map((industry) => (
                   <button
@@ -186,34 +242,29 @@ export function ScreenerClient({
                 ))}
               </div>
             </div>
-            <RangeSliderFilter
-              label="ارزش معاملات (امروز)"
-              bounds={bounds.tradeValue}
-              step={Math.max(1, Math.round((bounds.tradeValue[1] - bounds.tradeValue[0]) / 100))}
-              value={filters.tradeValue}
-              onChange={(v) => setFilters((f) => ({ ...f, tradeValue: v }))}
-            />
+            <div className="flex flex-wrap gap-3">
+              <FilterDropdown
+                label="ارزش معاملات (امروز)"
+                options={TRADE_VALUE_OPTIONS}
+                value={filters.tradeValue}
+                onChange={(v) => setFilters((f) => ({ ...f, tradeValue: v }))}
+              />
+            </div>
           </div>
         )}
 
         {tab === "technical" && (
-          <div className="flex flex-col gap-3">
-            <RangeSliderFilter
-              label="RSI14"
-              bounds={[0, 100]}
-              value={filters.rsi}
-              onChange={(v) => setFilters((f) => ({ ...f, rsi: v }))}
-            />
-            <RangeSliderFilter
+          <div className="flex flex-wrap gap-3">
+            <FilterDropdown label="RSI14" options={RSI_OPTIONS} value={filters.rsi} onChange={(v) => setFilters((f) => ({ ...f, rsi: v }))} />
+            <FilterDropdown
               label="رتبهٔ مرکب (پرسنتایل)"
-              bounds={bounds.compositeRank}
+              options={COMPOSITE_RANK_OPTIONS}
               value={filters.compositeRank}
               onChange={(v) => setFilters((f) => ({ ...f, compositeRank: v }))}
             />
-            <RangeSliderFilter
-              label="فاصله از میانگین متحرک ۵۰ روزه (٪)"
-              bounds={bounds.maDistance}
-              step={0.5}
+            <FilterDropdown
+              label="فاصله از میانگین متحرک ۵۰ روزه"
+              options={MA_DISTANCE_OPTIONS}
               value={filters.maDistance}
               onChange={(v) => setFilters((f) => ({ ...f, maDistance: v }))}
             />
@@ -221,35 +272,33 @@ export function ScreenerClient({
         )}
 
         {tab === "tabloo" && (
-          <div className="flex flex-col gap-3">
-            <RangeSliderFilter
+          <div className="flex flex-wrap gap-3">
+            <FilterDropdown
               label="قدرت خریدار"
-              bounds={bounds.buyerPower}
-              step={0.1}
+              options={BUYER_POWER_OPTIONS}
               value={filters.buyerPower}
               onChange={(v) => setFilters((f) => ({ ...f, buyerPower: v }))}
             />
-            <RangeSliderFilter
+            <FilterDropdown
               label="ورود پول حقیقی"
-              bounds={bounds.moneyFlow}
-              step={Math.max(1, Math.round((bounds.moneyFlow[1] - bounds.moneyFlow[0]) / 100))}
+              options={MONEY_FLOW_OPTIONS}
               value={filters.moneyFlow}
               onChange={(v) => setFilters((f) => ({ ...f, moneyFlow: v }))}
             />
-            <div>
-              <p className="mb-1 text-xs text-muted">حجم مشکوک</p>
+            <label className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted">حجم مشکوک</span>
               <select
                 value={filters.suspiciousVolume}
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, suspiciousVolume: e.target.value as ScreenerFilters["suspiciousVolume"] }))
                 }
-                className="rounded-md border border-border bg-surface-2 px-2 py-1 text-xs"
+                className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground"
               >
                 <option value="any">همه</option>
                 <option value="only">فقط مشکوک</option>
                 <option value="exclude">بدون مشکوک</option>
               </select>
-            </div>
+            </label>
           </div>
         )}
       </div>
@@ -265,7 +314,6 @@ export function ScreenerClient({
             <thead>
               <tr className="border-b border-border text-muted">
                 <th className="p-2 text-right">نماد</th>
-                <th className="p-2 text-right">نام شرکت</th>
                 <th className="p-2 text-right">صنعت</th>
                 <th className="p-2 text-right">رتبه مرکب</th>
                 <th className="p-2 text-right">RSI14</th>
@@ -281,8 +329,8 @@ export function ScreenerClient({
                     <Link href={`/symbol/${encodeURIComponent(row.symbol)}`} className="text-accent hover:underline">
                       {row.symbol}
                     </Link>
+                    {row.companyName && <p className="text-[11px] text-muted">{row.companyName}</p>}
                   </td>
-                  <td className="p-2 text-muted">{row.companyName ?? "—"}</td>
                   <td className="p-2 text-muted">{row.industry}</td>
                   <td className="ltr-nums p-2 text-right">{formatFaNumber(row.compositeRank)}</td>
                   <td className="ltr-nums p-2 text-right">{formatFaNumber(row.rsi14)}</td>

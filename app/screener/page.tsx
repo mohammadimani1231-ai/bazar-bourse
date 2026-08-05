@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { computeRawScore, percentileRank } from "@/lib/composite-rank.ts";
 import type { ScreenerRow } from "@/lib/screenerFilters.ts";
-import { ScreenerClient, type PresetRow, type FilterBounds } from "@/components/ScreenerClient";
+import { ScreenerClient, type PresetRow } from "@/components/ScreenerClient";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -9,12 +9,6 @@ export const dynamic = "force-dynamic";
 const CANDLE_WINDOW_DAYS = 450; // >= ۳۰۰ روز معاملاتی برای هر نماد فعال، با حاشیهٔ امن برای تعطیلات
 const CANDLES_PER_SYMBOL = 300;
 const PAGE_SIZE = 1000; // سقف پیش‌فرض PostgREST
-
-function bounds(values: number[], fallback: [number, number]): [number, number] {
-  const valid = values.filter((v) => Number.isFinite(v));
-  if (valid.length === 0) return fallback;
-  return [Math.min(...valid), Math.max(...valid)];
-}
 
 interface CandleCloseRow {
   symbol: string;
@@ -116,21 +110,12 @@ export default async function ScreenerPage() {
     };
   });
 
-  const filterBounds: FilterBounds = {
-    tradeValue: bounds(rows.map((r) => r.tradeValue ?? NaN), [0, 1]),
-    rsi: [0, 100],
-    compositeRank: bounds(rows.map((r) => r.compositeRank ?? NaN), [0, 99]),
-    maDistance: bounds(rows.map((r) => r.maDistancePct ?? NaN), [-20, 20]),
-    buyerPower: bounds(rows.map((r) => r.buyerPower ?? NaN), [0, 5]),
-    moneyFlow: bounds(rows.map((r) => r.moneyFlow ?? NaN), [-1, 1]),
-  };
-
   const presets: PresetRow[] = (presetsRaw ?? []).map((p) => ({ id: p.id, name: p.name, filters: p.filters }));
 
   return (
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-bold">اسکرینر</h1>
-      <ScreenerClient rows={rows} industries={[...new Set(symbols.map((s) => industryOf.get(s)!))]} bounds={filterBounds} presets={presets} />
+      <ScreenerClient rows={rows} industries={[...new Set(symbols.map((s) => industryOf.get(s)!))]} presets={presets} />
     </div>
   );
 }
