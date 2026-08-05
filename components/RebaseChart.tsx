@@ -6,6 +6,8 @@ import { formatJalaliDay } from "@/lib/jalali.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { CHART_COLORS } from "@/lib/chartColors.ts";
 
+// قاعدهٔ سخت بازطراحی: چارت‌ها هرگز آینه نمی‌شوند — ECharts هم مثل lightweight-charts
+// مستقل از `dir` صفحه رندر می‌شود، محور زمان همیشه چپ→راست (قدیم چپ، جدید راست) می‌ماند.
 export interface SeriesInput {
   name: string;
   color: string;

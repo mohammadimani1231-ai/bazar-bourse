@@ -8,11 +8,11 @@ export const CHART_COLORS = {
   down: "#ef4444",
   warning: "#eab308",
   accent: "#6366f1",
-  foreground: "#e8e8ec",
-  muted: "#9a9aa5",
-  border: "#2a2a33",
-  surface2: "#1b1b22",
-  neutral: "#3a3a44",
+  foreground: "#e4e6eb",
+  muted: "#868b98",
+  border: "#2b303f",
+  surface2: "#232735",
+  neutral: "#3d4254",
 } as const;
 
 export function hexToRgb(hex: string): [number, number, number] {

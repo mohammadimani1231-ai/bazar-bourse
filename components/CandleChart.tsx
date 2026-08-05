@@ -11,6 +11,12 @@ import {
 } from "lightweight-charts";
 import { CHART_COLORS } from "@/lib/chartColors.ts";
 
+/**
+ * قاعدهٔ سخت بازطراحی (prompts/redesign-visual-language.md): چارت‌ها هرگز آینه نمی‌شوند.
+ * lightweight-charts کاملاً canvas-محور و مستقل از `dir` صفحه است — محور زمان همیشه
+ * چپ→راست می‌ماند (قدیمی‌ترین کندل چپ، جدیدترین راست)، دقیقاً مثل TradingView، حتی داخل
+ * صفحهٔ RTL. عمداً هیچ‌جا تنظیمی برای معکوس‌کردنش اضافه نشده و نباید بشود.
+ */
 export interface CandlePoint {
   date: string; // yyyy-mm-dd
   open: number | null;

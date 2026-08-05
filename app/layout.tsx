@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Vazirmatn } from "next/font/google";
-import { Nav } from "@/components/Nav";
+import { Sidebar } from "@/components/Sidebar";
 import { RegimeBanner } from "@/components/RegimeBanner";
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import type { MarketRegime } from "@/lib/marketRegime.ts";
@@ -30,10 +30,12 @@ export default async function RootLayout({
 
   return (
     <html lang="fa" dir="rtl" className={`${vazirmatn.variable} dark h-full antialiased`}>
-      <body className="min-h-full flex flex-col font-sans">
-        <Nav />
-        <RegimeBanner regime={regime} />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
+      <body className="flex min-h-full font-sans">
+        <Sidebar />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <RegimeBanner regime={regime} />
+          <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
+        </div>
       </body>
     </html>
   );

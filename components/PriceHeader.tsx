@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browserClient.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { formatTehranTime } from "@/lib/jalali.ts";
+import { PriceFlash } from "@/components/PriceFlash";
 
 export interface QuoteSnapshot {
   lastPrice: number | null;
@@ -48,7 +49,9 @@ export function PriceHeader({ symbol, initial }: { symbol: string; initial: Quot
       </div>
       <div>
         <p className="text-xs text-muted">آخرین قیمت (pl)</p>
-        <p className="ltr-nums text-lg font-bold">{formatFaNumber(snapshot.lastPrice)}</p>
+        <PriceFlash value={snapshot.lastPrice}>
+          <p className="ltr-nums px-1 text-lg font-bold">{formatFaNumber(snapshot.lastPrice)}</p>
+        </PriceFlash>
       </div>
       <div>
         <p className="text-xs text-muted">قیمت پایانی (pc)</p>

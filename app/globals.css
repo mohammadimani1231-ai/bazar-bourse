@@ -1,12 +1,17 @@
 @import "tailwindcss";
 
+/*
+ * پالت رنگ — الهام از دارک‌مود TradingView: خاکستری تیرهٔ آبی‌مایل، نه سیاه مطلق
+ * (بریف بازطراحی ۲۰۲۶-۰۸-۰۵، مرجع: prompts/redesign-visual-language.md).
+ * کنتراست چک‌شده: muted روی background ≈ ۵.۳:۱، foreground روی background ≈ ۱۴.۴:۱ (هر دو AA+).
+ */
 :root {
-  --background: #0a0a0c;
-  --surface: #131318;
-  --surface-2: #1b1b22;
-  --border: #2a2a33;
-  --foreground: #e8e8ec;
-  --muted: #9a9aa5;
+  --background: #12141c;
+  --surface: #191c26;
+  --surface-2: #232735;
+  --border: #2b303f;
+  --foreground: #e4e6eb;
+  --muted: #868b98;
   --up: #22c55e;
   --down: #ef4444;
   --accent: #6366f1;
@@ -43,8 +48,13 @@ body {
   border-radius: 2px;
 }
 
-/* اعداد و چارت‌ها همیشه LTR باشند حتی داخل صفحهٔ RTL */
+/*
+ * اعداد و چارت‌ها همیشه LTR باشند حتی داخل صفحهٔ RTL (قاعدهٔ سخت بازطراحی — هرگز آینه نشوند).
+ * tabular-nums هم اضافه شد: ارقام هم‌عرض، طوری‌که در ستون‌های جدول هنگام تغییر عدد
+ * (قیمت زنده، RSI و...) عرض ستون نلرزد — الگوی TradingView.
+ */
 .ltr-nums {
   direction: ltr;
   unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
 }
