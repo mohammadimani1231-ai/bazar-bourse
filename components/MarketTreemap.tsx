@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { useRouter } from "next/navigation";
 import { formatFaCompactRial, formatFaPercent } from "@/lib/format.ts";
+import { CHART_COLORS, hexToRgb } from "@/lib/chartColors.ts";
 
 export interface TreemapItem {
   symbol: string;
@@ -15,9 +16,9 @@ export interface TreemapItem {
 
 type ColorMode = "money_flow" | "change_pct";
 
-const UP = [34, 197, 94]; // rgb(--up)
-const DOWN = [239, 68, 68]; // rgb(--down)
-const NEUTRAL = [58, 58, 68];
+const UP = hexToRgb(CHART_COLORS.up);
+const DOWN = hexToRgb(CHART_COLORS.down);
+const NEUTRAL = hexToRgb(CHART_COLORS.neutral);
 
 function mixColor(ratio: number): string {
   // ratio در بازهٔ [-1,1]، منفی=قرمز، مثبت=سبز، صفر=خاکستری خنثی
@@ -69,7 +70,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
           roam: false,
           nodeClick: false,
           breadcrumb: { show: false },
-          label: { color: "#fff", fontFamily: "var(--font-vazirmatn)", fontSize: 12 },
+          label: { color: CHART_COLORS.foreground, fontFamily: "var(--font-vazirmatn)", fontSize: 12 },
           upperLabel: { show: false },
           itemStyle: { borderColor: "var(--background)", borderWidth: 1, gapWidth: 1 },
           data,
@@ -96,6 +97,16 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
             تغییر قیمت
           </button>
         </div>
+      </div>
+      <div className="mb-2 flex items-center gap-2 text-[11px] text-muted">
+        <span>{mode === "money_flow" ? "بیشترین خروج" : "بیشترین افت"}</span>
+        <div
+          className="h-2 flex-1 rounded"
+          style={{
+            background: `linear-gradient(to right, ${CHART_COLORS.up}, ${CHART_COLORS.neutral}, ${CHART_COLORS.down})`,
+          }}
+        />
+        <span>{mode === "money_flow" ? "بیشترین ورود" : "بیشترین رشد"}</span>
       </div>
       <ReactECharts
         option={option}

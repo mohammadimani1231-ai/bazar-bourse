@@ -3,6 +3,7 @@
 import ReactECharts from "echarts-for-react";
 import { formatFaNumber } from "@/lib/format.ts";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
+import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export function TensionGauge({ value, capturedAt }: { value: number | null; capturedAt: string | null }) {
   if (value == null) {
@@ -27,20 +28,20 @@ export function TensionGauge({ value, capturedAt }: { value: number | null; capt
           lineStyle: {
             width: 14,
             color: [
-              [0.35, "#22c55e"],
-              [0.65, "#eab308"],
-              [1, "#ef4444"],
+              [0.35, CHART_COLORS.up],
+              [0.65, CHART_COLORS.warning],
+              [1, CHART_COLORS.down],
             ],
           },
         },
-        pointer: { itemStyle: { color: "#e8e8ec" } },
+        pointer: { itemStyle: { color: CHART_COLORS.foreground } },
         axisTick: { show: false },
-        splitLine: { length: 10, lineStyle: { color: "#e8e8ec", width: 2 } },
-        axisLabel: { color: "#9a9aa5", fontSize: 10, distance: 18 },
+        splitLine: { length: 10, lineStyle: { color: CHART_COLORS.foreground, width: 2 } },
+        axisLabel: { color: CHART_COLORS.muted, fontSize: 10, distance: 18 },
         detail: {
           valueAnimation: true,
           formatter: (v: number) => formatFaNumber(v, 0),
-          color: "#e8e8ec",
+          color: CHART_COLORS.foreground,
           fontSize: 22,
           fontWeight: "bold",
           offsetCenter: [0, "60%"],

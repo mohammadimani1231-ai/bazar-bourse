@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { logReturns, pearsonCorrelation } from "@/lib/stats.ts";
+import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export interface AssetSeries {
   name: string;
@@ -63,13 +64,13 @@ export function CorrelationHeatmap({ assets }: { assets: AssetSeries[] }) {
     xAxis: {
       type: "category",
       data: assets.map((a) => a.name),
-      axisLabel: { color: "#9a9aa5", rotate: 45 },
+      axisLabel: { color: CHART_COLORS.muted, rotate: 45 },
       splitArea: { show: true },
     },
     yAxis: {
       type: "category",
       data: assets.map((a) => a.name),
-      axisLabel: { color: "#9a9aa5" },
+      axisLabel: { color: CHART_COLORS.muted },
       splitArea: { show: true },
     },
     visualMap: {
@@ -79,8 +80,8 @@ export function CorrelationHeatmap({ assets }: { assets: AssetSeries[] }) {
       orient: "horizontal",
       left: "center",
       bottom: 0,
-      textStyle: { color: "#9a9aa5" },
-      inRange: { color: ["#ef4444", "#1b1b22", "#22c55e"] },
+      textStyle: { color: CHART_COLORS.muted },
+      inRange: { color: [CHART_COLORS.down, CHART_COLORS.surface2, CHART_COLORS.up] },
     },
     series: [
       {

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { formatJalaliDay } from "@/lib/jalali.ts";
 import { formatFaNumber } from "@/lib/format.ts";
+import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export interface SeriesInput {
   name: string;
@@ -45,8 +46,8 @@ export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[
     }
     const markLineData = [...newsByDate.entries()].map(([date, n]) => ({
       xAxis: formatJalaliDay(date + "T00:00:00Z"),
-      label: { formatter: "خبر", color: "#6366f1", fontSize: 9 },
-      lineStyle: { color: "#6366f1", type: "dashed" as const, width: 1 },
+      label: { formatter: "خبر", color: CHART_COLORS.accent, fontSize: 9 },
+      lineStyle: { color: CHART_COLORS.accent, type: "dashed" as const, width: 1 },
       newsUrl: n.url,
       newsTitle: n.title,
     }));
@@ -76,7 +77,7 @@ export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[
     backgroundColor: "transparent",
     textStyle: { fontFamily: "var(--font-vazirmatn)" },
     grid: { left: 48, right: 16, top: 40, bottom: 40 },
-    legend: { top: 0, textStyle: { color: "#9a9aa5" }, data: chartSeries.map((s) => s.name) },
+    legend: { top: 0, textStyle: { color: CHART_COLORS.muted }, data: chartSeries.map((s) => s.name) },
     tooltip: {
       trigger: "axis",
       valueFormatter: (v: number) => (v == null ? "—" : formatFaNumber(v, 1)),
@@ -84,15 +85,15 @@ export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[
     xAxis: {
       type: "category",
       data: xAxisDates.map((d) => formatJalaliDay(d + "T00:00:00Z")),
-      axisLine: { lineStyle: { color: "#2a2a33" } },
-      axisLabel: { color: "#9a9aa5", fontSize: 10 },
+      axisLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLabel: { color: CHART_COLORS.muted, fontSize: 10 },
     },
     yAxis: {
       type: "value",
       name: "rebase = 100",
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: "#2a2a33" } },
-      axisLabel: { color: "#9a9aa5", formatter: (v: number) => formatFaNumber(v) },
+      splitLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLabel: { color: CHART_COLORS.muted, formatter: (v: number) => formatFaNumber(v) },
     },
     series: chartSeries,
   };

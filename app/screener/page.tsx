@@ -6,10 +6,55 @@ import { ScreenerClient, type PresetRow, type FilterBounds } from "@/components/
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
 
+const CANDLE_WINDOW_DAYS = 450; // >= ۳۰۰ روز معاملاتی برای هر نماد فعال، با حاشیهٔ امن برای تعطیلات
+const CANDLES_PER_SYMBOL = 300;
+const PAGE_SIZE = 1000; // سقف پیش‌فرض PostgREST
+
 function bounds(values: number[], fallback: [number, number]): [number, number] {
   const valid = values.filter((v) => Number.isFinite(v));
   if (valid.length === 0) return fallback;
   return [Math.min(...valid), Math.max(...valid)];
+}
+
+interface CandleCloseRow {
+  symbol: string;
+  date: string;
+  adjusted_close: number | null;
+}
+
+/**
+ * یک کوئری دسته‌ای (صفحه‌بندی‌شده به‌خاطر سقف ۱۰۰۰ ردیفی PostgREST) به‌جای یک کوئری جدا
+ * به‌ازای هر نماد watchlist — قبلاً روی هر بار لود صفحه به تعداد نمادها (الان ۴۵) درخواست
+ * موازی جدا به Supabase می‌رفت.
+ */
+async function fetchRecentClosesBySymbol(
+  supabase: ReturnType<typeof createServerSupabaseClient>,
+  cutoffDate: string,
+): Promise<Map<string, number[]>> {
+  const closesBySymbol = new Map<string, number[]>();
+  let from = 0;
+  for (;;) {
+    const { data } = await supabase
+      .from("daily_candles")
+      .select("symbol, date, adjusted_close")
+      .gte("date", cutoffDate)
+      .order("date", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1);
+    const page = (data ?? []) as CandleCloseRow[];
+    for (const row of page) {
+      if (row.adjusted_close == null) continue;
+      const list = closesBySymbol.get(row.symbol) ?? [];
+      list.push(row.adjusted_close);
+      closesBySymbol.set(row.symbol, list);
+    }
+    if (page.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
+  // ردیف‌ها صعودی بر تاریخ خوانده شدند؛ فقط N تای آخر هر نماد لازم است (هم‌ارز limit(300) قبلی)
+  for (const [symbol, closes] of closesBySymbol) {
+    if (closes.length > CANDLES_PER_SYMBOL) closesBySymbol.set(symbol, closes.slice(-CANDLES_PER_SYMBOL));
+  }
+  return closesBySymbol;
 }
 
 export default async function ScreenerPage() {
@@ -43,20 +88,10 @@ export default async function ScreenerPage() {
     latestMetric.set(row.symbol, bySymbol);
   }
 
-  const candleResults = await Promise.all(
-    symbols.map(async (symbol) => {
-      const { data } = await supabase
-        .from("daily_candles")
-        .select("adjusted_close")
-        .eq("symbol", symbol)
-        .order("date", { ascending: false })
-        .limit(300);
-      const closes = (data ?? [])
-        .map((r) => r.adjusted_close)
-        .filter((v): v is number => v != null)
-        .reverse();
-      return [symbol, computeRawScore(closes)] as const;
-    }),
+  const candleCutoffDate = new Date(new Date().getTime() - CANDLE_WINDOW_DAYS * 24 * 60 * 60_000).toISOString().slice(0, 10);
+  const closesBySymbol = await fetchRecentClosesBySymbol(supabase, candleCutoffDate);
+  const candleResults = symbols.map(
+    (symbol) => [symbol, computeRawScore(closesBySymbol.get(symbol) ?? [])] as const,
   );
   const rawScoreBySymbol = new Map(candleResults);
   const ranked = percentileRank(

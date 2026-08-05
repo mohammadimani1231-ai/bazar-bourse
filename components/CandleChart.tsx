@@ -9,6 +9,7 @@ import {
   type MouseEventParams,
   type Time,
 } from "lightweight-charts";
+import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export interface CandlePoint {
   date: string; // yyyy-mm-dd
@@ -49,19 +50,19 @@ export function CandleChart({
     if (!container) return;
 
     const chart = createChart(container, {
-      layout: { background: { color: "transparent" }, textColor: "#9a9aa5" },
-      grid: { vertLines: { color: "#2a2a33" }, horzLines: { color: "#2a2a33" } },
-      rightPriceScale: { borderColor: "#2a2a33" },
-      timeScale: { borderColor: "#2a2a33" },
+      layout: { background: { color: "transparent" }, textColor: CHART_COLORS.muted },
+      grid: { vertLines: { color: CHART_COLORS.border }, horzLines: { color: CHART_COLORS.border } },
+      rightPriceScale: { borderColor: CHART_COLORS.border },
+      timeScale: { borderColor: CHART_COLORS.border },
       autoSize: true,
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: "#22c55e",
-      downColor: "#ef4444",
+      upColor: CHART_COLORS.up,
+      downColor: CHART_COLORS.down,
       borderVisible: false,
-      wickUpColor: "#22c55e",
-      wickDownColor: "#ef4444",
+      wickUpColor: CHART_COLORS.up,
+      wickDownColor: CHART_COLORS.down,
     });
 
     const data = candles
@@ -78,7 +79,7 @@ export function CandleChart({
     const signalMarkerList = signalMarkers.map((m) => ({
       time: toTimestamp(m.date),
       position: (m.direction === "sell" ? "aboveBar" : "belowBar") as "aboveBar" | "belowBar",
-      color: m.direction === "sell" ? "#ef4444" : "#22c55e",
+      color: m.direction === "sell" ? CHART_COLORS.down : CHART_COLORS.up,
       shape: (m.direction === "sell" ? "arrowDown" : "arrowUp") as "arrowDown" | "arrowUp",
     }));
 
@@ -88,7 +89,7 @@ export function CandleChart({
     const newsMarkerList = [...newsByTime.entries()].map(([time, n]) => ({
       time: time as UTCTimestamp,
       position: "aboveBar" as const,
-      color: "#6366f1",
+      color: CHART_COLORS.accent,
       shape: "circle" as const,
       text: "خبر",
       size: 0.6,

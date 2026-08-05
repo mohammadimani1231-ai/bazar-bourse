@@ -47,6 +47,8 @@ export function ScreenerClient({
   const [presetName, setPresetName] = useState("");
   const [isPending, startTransition] = useTransition();
   const [addedSymbols, setAddedSymbols] = useState<Set<string>>(new Set());
+  const [presetError, setPresetError] = useState<string | null>(null);
+  const [watchlistError, setWatchlistError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     return applyScreenerFilters(rows, filters).sort(
@@ -65,9 +67,14 @@ export function ScreenerClient({
 
   const handleSavePreset = () => {
     if (!presetName.trim()) return;
+    setPresetError(null);
     startTransition(async () => {
-      await savePreset(presetName.trim(), filters);
-      setPresetName("");
+      try {
+        await savePreset(presetName.trim(), filters);
+        setPresetName("");
+      } catch (err) {
+        setPresetError(err instanceof Error ? err.message : "ذخیرهٔ preset ناموفق بود");
+      }
     });
   };
 
@@ -76,9 +83,16 @@ export function ScreenerClient({
   };
 
   const handleAddToWatchlist = (row: ScreenerRow) => {
+    setWatchlistError(null);
     startTransition(async () => {
-      await addToWatchlist(row.symbol, row.industry);
-      setAddedSymbols((s) => new Set(s).add(row.symbol));
+      try {
+        await addToWatchlist(row.symbol, row.industry);
+        setAddedSymbols((s) => new Set(s).add(row.symbol));
+      } catch (err) {
+        setWatchlistError(
+          `افزودن ${row.symbol} ناموفق بود: ${err instanceof Error ? err.message : "خطای نامشخص"}`,
+        );
+      }
     });
   };
 
@@ -150,6 +164,7 @@ export function ScreenerClient({
             </button>
           </div>
         </div>
+        {presetError && <p className="mb-3 text-xs text-red-400">خطا: {presetError}</p>}
 
         {tab === "descriptive" && (
           <div className="flex flex-col gap-3">
@@ -244,6 +259,7 @@ export function ScreenerClient({
           <h2 className="text-sm font-bold">نتایج ({formatFaNumber(filtered.length)})</h2>
           <ExportCsvButton getCsv={csv} filename="screener.csv" />
         </div>
+        {watchlistError && <p className="mb-2 text-xs text-red-400">خطا: {watchlistError}</p>}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
