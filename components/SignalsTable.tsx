@@ -10,6 +10,7 @@ import { toCsv } from "@/lib/csv.ts";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { SignalExplainButton } from "@/components/SignalExplainButton";
 import { EmptyState } from "@/components/EmptyState";
+import { PositionSizeSuggestion } from "@/components/PositionSizeSuggestion";
 
 export interface RuleEvaluationLike {
   rule: string;
@@ -156,6 +157,7 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                             )}
                             <SignalExplainButton reasons={row.reasons} />
                           </div>
+                          {row.direction === "buy" && <PositionSizeSuggestion symbol={row.symbol} signalId={row.id} />}
                         </td>
                       </tr>
                     )}
