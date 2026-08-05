@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
+import { SearchX } from "lucide-react";
 import {
   applyScreenerFilters,
   DEFAULT_SCREENER_FILTERS,
@@ -12,6 +13,7 @@ import { formatFaCompactRial, formatFaNumber } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/FilterDropdown";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
+import { EmptyState } from "@/components/EmptyState";
 import { savePreset, addToWatchlist } from "@/app/screener/actions.ts";
 
 const ALL: FilterDropdownOption = { label: "همه", range: { min: null, max: null } };
@@ -349,7 +351,7 @@ export function ScreenerClient({
               ))}
             </tbody>
           </table>
-          {filtered.length === 0 && <p className="p-4 text-center text-muted">نتیجه‌ای با این فیلترها نیست.</p>}
+          {filtered.length === 0 && <EmptyState icon={SearchX} title="نتیجه‌ای با این فیلترها نیست" />}
         </div>
       </div>
     </div>

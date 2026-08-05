@@ -83,6 +83,7 @@ export function SymbolTabs({
 
       {tab === "signals" && (
         <div className="rounded-lg border border-border bg-surface p-3">
+          <h2 className="mb-2 text-sm font-bold">تاریخچهٔ سیگنال‌ها</h2>
           {signalHistoryItems.length > 0 ? (
             <SignalHistoryList items={signalHistoryItems} />
           ) : (

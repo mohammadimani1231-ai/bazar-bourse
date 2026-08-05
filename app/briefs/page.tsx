@@ -1,6 +1,8 @@
+import { Sparkles } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
 import { BriefView } from "@/components/BriefView";
+import { EmptyState } from "@/components/EmptyState";
 
 // دیتای زنده — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ export default async function BriefsPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-bold">تحلیل‌های قبلی</h1>
       {(data ?? []).length === 0 ? (
-        <p className="text-sm text-muted">هنوز بریفی تولید نشده.</p>
+        <EmptyState icon={Sparkles} title="هنوز بریفی تولید نشده" />
       ) : (
         (data ?? []).map((row) => (
           <div key={row.id} className="rounded-lg border border-border bg-surface p-3">

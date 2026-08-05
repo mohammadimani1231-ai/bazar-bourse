@@ -1,7 +1,10 @@
 "use client";
 
 import ReactECharts from "echarts-for-react";
+import { LineChart } from "lucide-react";
 import { formatFaNumber, formatFaPercent } from "@/lib/format.ts";
+import { CHART_COLORS } from "@/lib/chartColors.ts";
+import { EmptyState } from "@/components/EmptyState";
 import type { RuleStat } from "@/lib/ruleStats.ts";
 
 export interface ScorePoint {
@@ -21,22 +24,22 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
       name: "score",
       nameLocation: "middle",
       nameGap: 28,
-      axisLine: { lineStyle: { color: "#2a2a33" } },
-      axisLabel: { color: "#9a9aa5", formatter: (v: number) => formatFaNumber(v) },
-      splitLine: { lineStyle: { color: "#2a2a33" } },
+      axisLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLabel: { color: CHART_COLORS.muted, formatter: (v: number) => formatFaNumber(v) },
+      splitLine: { lineStyle: { color: CHART_COLORS.border } },
     },
     yAxis: {
       name: "بازده ۵روزه (٪)",
-      axisLine: { lineStyle: { color: "#2a2a33" } },
-      axisLabel: { color: "#9a9aa5", formatter: (v: number) => formatFaNumber(v) },
-      splitLine: { lineStyle: { color: "#2a2a33" } },
+      axisLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLabel: { color: CHART_COLORS.muted, formatter: (v: number) => formatFaNumber(v) },
+      splitLine: { lineStyle: { color: CHART_COLORS.border } },
     },
     series: [
       {
         type: "scatter",
         symbolSize: 8,
         data: scorePoints.map((p) => [p.score, p.returnPct]),
-        itemStyle: { color: "#6366f1", opacity: 0.7 },
+        itemStyle: { color: CHART_COLORS.accent, opacity: 0.7 },
       },
     ],
   };
@@ -46,9 +49,11 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
       <div className="rounded-lg border border-border bg-surface p-3">
         <h2 className="mb-2 text-sm font-bold">عملکرد هر قانون</h2>
         {stats.length === 0 ? (
-          <p className="text-xs text-muted">
-            هنوز سیگنالی evaluate نشده — این تب وقتی معنادار می‌شود که signal_outcomes داده داشته باشد.
-          </p>
+          <EmptyState
+            icon={LineChart}
+            title="هنوز سیگنالی evaluate نشده"
+            description="این تب وقتی معنادار می‌شود که signal_outcomes داده داشته باشد."
+          />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
@@ -77,7 +82,7 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
       <div className="rounded-lg border border-border bg-surface p-3">
         <h2 className="mb-2 text-sm font-bold">روند score → بازدهی (۵ روزه)</h2>
         {scorePoints.length === 0 ? (
-          <p className="text-xs text-muted">هنوز داده‌ای نیست.</p>
+          <EmptyState icon={LineChart} title="هنوز داده‌ای نیست" />
         ) : (
           <ReactECharts option={scatterOption} style={{ height: 280 }} />
         )}

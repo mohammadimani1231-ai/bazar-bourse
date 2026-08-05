@@ -2,12 +2,14 @@
 
 import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
+import { Zap } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browserClient.ts";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { SignalExplainButton } from "@/components/SignalExplainButton";
+import { EmptyState } from "@/components/EmptyState";
 
 export interface RuleEvaluationLike {
   rule: string;
@@ -93,7 +95,7 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
         <ExportCsvButton getCsv={csv} filename="signals.csv" />
       </div>
       {rows.length === 0 ? (
-        <p className="text-xs text-muted">هنوز سیگنالی ثبت نشده.</p>
+        <EmptyState icon={Zap} title="هنوز سیگنالی ثبت نشده" />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">

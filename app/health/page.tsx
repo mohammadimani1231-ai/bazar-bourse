@@ -1,6 +1,8 @@
+import { HeartPulse } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
+import { EmptyState } from "@/components/EmptyState";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -98,7 +100,7 @@ export default async function HealthPage() {
           </tbody>
         </table>
         </div>
-        {sources.length === 0 && <p className="p-4 text-center text-muted">هنوز داده‌ای در pipeline_health نیست.</p>}
+        {sources.length === 0 && <EmptyState icon={HeartPulse} title="هنوز داده‌ای در pipeline_health نیست" />}
       </div>
 
       <div className="rounded-lg border border-border bg-surface p-3">

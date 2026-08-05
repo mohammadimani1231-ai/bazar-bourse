@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { FileSearch } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
 import { PrintReportButton } from "@/components/PrintReportButton";
+import { EmptyState } from "@/components/EmptyState";
 
 // آرشیو گزارش‌ها — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -27,7 +29,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           <Link href="/reports" className="text-xs text-muted hover:underline">
             ← بازگشت به آرشیو
           </Link>
-          <p className="text-sm text-muted">گزارش پیدا نشد.</p>
+          <EmptyState icon={FileSearch} title="گزارش پیدا نشد" />
         </div>
       );
     }
@@ -88,7 +90,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       </form>
 
       {(reports ?? []).length === 0 ? (
-        <p className="text-sm text-muted">گزارشی مطابق این فیلتر پیدا نشد.</p>
+        <EmptyState icon={FileSearch} title="گزارشی مطابق این فیلتر پیدا نشد" />
       ) : (
         <div className="flex flex-col gap-2">
           {(reports ?? []).map((r) => (

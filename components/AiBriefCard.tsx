@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
 import { BriefView } from "@/components/BriefView";
+import { EmptyState } from "@/components/EmptyState";
 import type { DailyBrief } from "@/lib/briefSchema.ts";
 
 export interface LatestBrief {
@@ -24,7 +26,7 @@ export function AiBriefCard({ latest }: { latest: LatestBrief | null }) {
           <p className="ltr-nums mt-2 text-[11px] text-muted">{formatJalaliDateTime(latest.createdAt)}</p>
         </>
       ) : (
-        <p className="text-xs text-muted">هنوز بریفی تولید نشده — اولین اجرا ساعت ۸:۳۰ صبح (قبل بازگشایی بازار) است.</p>
+        <EmptyState icon={Sparkles} title="هنوز بریفی تولید نشده" description="اولین اجرا ساعت ۸:۳۰ صبح (قبل بازگشایی بازار) است." />
       )}
     </div>
   );

@@ -1,4 +1,6 @@
+import { Newspaper } from "lucide-react";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
+import { EmptyState } from "@/components/EmptyState";
 
 export interface NewsItem {
   id: number;
@@ -14,7 +16,7 @@ export function NewsFeed({ items }: { items: NewsItem[] }) {
     <div className="rounded-lg border border-border bg-surface p-3">
       <h2 className="mb-2 text-sm font-bold">اخبار مرتبط</h2>
       {items.length === 0 ? (
-        <p className="text-xs text-muted">هنوز خبری با کلیدواژه‌های تعیین‌شده پیدا نشده.</p>
+        <EmptyState icon={Newspaper} title="خبری پیدا نشده" description="هنوز خبری با کلیدواژه‌های تعیین‌شده پیدا نشده." />
       ) : (
         <ul className="flex flex-col gap-2">
           {items.map((item) => (
