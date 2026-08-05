@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isMarketOpen,
+  isStaleAsOf,
   isWithinTheoreticalTradingWindow,
   wasTodayTradingDay,
   type VolumeSample,
@@ -101,5 +102,25 @@ describe("wasTodayTradingDay", () => {
       { capturedAt: "2026-08-04T09:00:00.000Z", volume: 9000 },
     ];
     expect(wasTodayTradingDay(TUESDAY_AFTER_CLOSE, new Set(), todayVolumes)).toBe(true);
+  });
+});
+
+describe("isStaleAsOf", () => {
+  const NOW_MS = new Date("2026-08-04T07:30:00.000Z").getTime();
+
+  it("بازار بسته باشد → هرگز stale نیست، حتی دادهٔ خیلی قدیمی", () => {
+    expect(isStaleAsOf("2026-08-01T00:00:00.000Z", false, NOW_MS)).toBe(false);
+  });
+
+  it("بازار باز، دادهٔ زیر ۱۵ دقیقه → stale نیست", () => {
+    expect(isStaleAsOf("2026-08-04T07:20:00.000Z", true, NOW_MS)).toBe(false);
+  });
+
+  it("بازار باز، دادهٔ بیش از ۱۵ دقیقه → stale است", () => {
+    expect(isStaleAsOf("2026-08-04T07:10:00.000Z", true, NOW_MS)).toBe(true);
+  });
+
+  it("آستانهٔ سفارشی رعایت می‌شود", () => {
+    expect(isStaleAsOf("2026-08-04T07:25:00.000Z", true, NOW_MS, 2 * 60 * 1000)).toBe(true);
   });
 });

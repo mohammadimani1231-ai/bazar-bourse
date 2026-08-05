@@ -3,7 +3,8 @@ import { tehranDayBounds } from "./time/tehranDay.ts";
 const THEORETICAL_OPEN_HOUR_UTC = 5.5;
 const THEORETICAL_CLOSE_HOUR_UTC = 9.5;
 const TRADING_WEEKDAYS_UTC = new Set([6, 0, 1, 2, 3]); // شنبه..چهارشنبه (JS getUTCDay: یکشنبه=0)
-const STALE_THRESHOLD_MS = 15 * 60 * 1000;
+/** آستانهٔ ۱۵ دقیقه — هم برای heuristic «تغییر حجم اخیر» زیر، هم برای AsOfBadge (بدون تکرار عدد جادویی). */
+export const STALE_THRESHOLD_MS = 15 * 60 * 1000;
 
 /** آیا امروز جزو شنبه‌تاچهارشنبه است — فقط شرط لازم روز، ربطی به ساعت ندارد. */
 export function isTradingWeekday(nowUtc: Date): boolean {
@@ -56,6 +57,21 @@ export interface MarketStatusInputs {
 export type MarketClosedReason = "outside_theoretical_hours" | "holiday" | "no_volume_change";
 
 export type MarketStatusResult = { open: true } | { open: false; reason: MarketClosedReason };
+
+/**
+ * قاعدهٔ staleness مشترک AsOfBadge — فقط وقتی بازار واقعاً باز است staleness معنا دارد؛
+ * `nowMs` صریح (نه Date.now() داخلی) تا هم در کامپوننت (سرور، هر بار تازه) هم در تست
+ * (بدون وابستگی به ساعت واقعی سیستم) قابل استفاده باشد.
+ */
+export function isStaleAsOf(
+  capturedAt: string,
+  marketOpen: boolean,
+  nowMs: number,
+  staleAfterMs: number = STALE_THRESHOLD_MS,
+): boolean {
+  if (!marketOpen) return false;
+  return nowMs - new Date(capturedAt).getTime() > staleAfterMs;
+}
 
 /**
  * منبع حقیقتِ «آیا بازار الان باز است» (قید CLAUDE.md #11) — هرگز از روز هفته به‌تنهایی
