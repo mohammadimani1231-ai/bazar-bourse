@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { tehranDayBounds } from "@/lib/time/tehranDay.ts";
+import { formatFaNumber } from "@/lib/format.ts";
 import { PriceHeader } from "@/components/PriceHeader";
-import { CandleChart, type CandlePoint, type SignalMarker, type NewsMarker } from "@/components/CandleChart";
-import { IntradayFlowChart, type IntradayPoint } from "@/components/IntradayFlowChart";
-import { QueueFlags, type QueueFlagsData } from "@/components/QueueFlags";
-import { SignalHistoryList, type SignalHistoryItem } from "@/components/SignalHistoryList";
+import type { CandlePoint, SignalMarker, NewsMarker } from "@/components/CandleChart";
+import type { IntradayPoint } from "@/components/IntradayFlowChart";
+import type { QueueFlagsData } from "@/components/QueueFlags";
+import type { SignalHistoryItem } from "@/components/SignalHistoryList";
 import { GenerateSymbolReportButton } from "@/components/GenerateSymbolReportButton";
+import { SymbolTabs } from "@/components/SymbolTabs";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -33,7 +35,7 @@ export default async function SymbolPage({
     supabase.from("watchlist").select("symbol, industry").eq("symbol", symbol).maybeSingle(),
     supabase
       .from("quotes")
-      .select("last_price, close_price, captured_at")
+      .select("last_price, close_price, price_max, price_min, captured_at")
       .eq("symbol", symbol)
       .order("captured_at", { ascending: false })
       .limit(1),
@@ -128,46 +130,47 @@ export default async function SymbolPage({
   };
 
   const latestQuote = latestQuoteRows?.[0] ?? null;
+  // نزدیک‌ترین کندل بستهٔ قبلی (دیروز، چون کندل امروز تا پایان جلسه ساخته نمی‌شود) — برای
+  // درصد تغییر هدر قیمت (الگوی Yahoo Finance)، نه از خود quotes امروز.
+  const previousClose = candlesRaw?.[0]?.close ?? null;
 
   return (
     <div className="flex flex-col gap-4">
       <PriceHeader
         symbol={symbol}
+        industry={watchlistRow.industry ?? null}
         initial={{
           lastPrice: latestQuote?.last_price ?? null,
           closePrice: latestQuote?.close_price ?? null,
           capturedAt: latestQuote?.captured_at ?? null,
         }}
+        previousClose={previousClose}
       />
+
       <div className="flex items-center justify-between">
-        <p className="text-xs text-muted">صنعت: {watchlistRow.industry ?? "نامشخص"}</p>
+        <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs">
+          <div className="flex justify-between gap-4">
+            <span className="text-muted">قیمت پایانی روز قبل</span>
+            <span className="ltr-nums font-bold">{formatFaNumber(previousClose)}</span>
+          </div>
+          <div className="flex justify-between gap-4">
+            <span className="text-muted">سقف/کف مجاز امروز</span>
+            <span className="ltr-nums font-bold">
+              {formatFaNumber(latestQuote?.price_max ?? null)} / {formatFaNumber(latestQuote?.price_min ?? null)}
+            </span>
+          </div>
+        </div>
         <GenerateSymbolReportButton symbol={symbol} />
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
-        <h2 className="mb-2 text-sm font-bold">کندل روزانه</h2>
-        {candles.length > 0 ? (
-          <>
-            <CandleChart candles={candles} signalMarkers={signalMarkers} newsMarkers={newsMarkers} />
-            <p className="mt-2 text-[11px] text-muted">
-              فلش سبز/قرمز = سیگنال خرید/فروش، دایرهٔ آبی «خبر» = رویداد ژئوپلیتیک/اقتصادی (کل بازار، نه لزوماً این نماد) — کلیک برای لینک.
-            </p>
-          </>
-        ) : (
-          <p className="text-xs text-muted">هنوز کندلی برای این نماد ثبت نشده.</p>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-border bg-surface p-3">
-          <h2 className="mb-2 text-sm font-bold">سری‌زمانی درون‌روز</h2>
-          <IntradayFlowChart points={intradayPoints} />
-        </div>
-        <div className="flex flex-col gap-4">
-          <QueueFlags data={queueFlags} />
-          <SignalHistoryList items={signalHistoryItems} />
-        </div>
-      </div>
+      <SymbolTabs
+        candles={candles}
+        signalMarkers={signalMarkers}
+        newsMarkers={newsMarkers}
+        intradayPoints={intradayPoints}
+        queueFlags={queueFlags}
+        signalHistoryItems={signalHistoryItems}
+      />
     </div>
   );
 }
