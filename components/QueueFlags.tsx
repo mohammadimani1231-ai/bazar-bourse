@@ -4,6 +4,7 @@ export interface FlagValue {
 
 export interface QueueFlagsData {
   lockedBuy: boolean | null;
+  lockedSell: boolean | null;
   heavy: boolean | null;
   queueVelocity: number | null;
   suspiciousVolume: boolean | null;
@@ -42,6 +43,7 @@ export function QueueFlags({ data }: { data: QueueFlagsData }) {
       <h2 className="mb-2 text-sm font-bold">وضعیت صف و پرچم‌های امروز</h2>
       <div className="flex flex-wrap gap-2">
         <Badge label="قفل خرید" active={!!data.lockedBuy} unknown={data.lockedBuy == null} />
+        <Badge label="قفل فروش" active={!!data.lockedSell} unknown={data.lockedSell == null} />
         <Badge label="صف سنگین" active={!!data.heavy} unknown={data.heavy == null} />
         <Badge label={velocityLabel ?? "سرعت صف نامشخص"} active={data.queueVelocity != null} unknown={velocityLabel == null} />
         <Badge label="حجم مشکوک" active={!!data.suspiciousVolume} unknown={data.suspiciousVolume == null} />

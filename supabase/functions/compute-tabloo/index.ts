@@ -134,6 +134,7 @@ Deno.serve(async () => {
         },
         { symbol, metric: "code_to_code", value: bool01(codeToCode), meta: null, captured_at: latest.captured_at },
         { symbol, metric: "queue_locked_buy", value: bool01(queue.lockedBuy), meta: null, captured_at: latest.captured_at },
+        { symbol, metric: "queue_locked_sell", value: bool01(queue.lockedSell), meta: null, captured_at: latest.captured_at },
         { symbol, metric: "queue_heavy", value: bool01(queue.heavy), meta: null, captured_at: latest.captured_at },
       );
 

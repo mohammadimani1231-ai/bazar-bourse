@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ema, rsi, roc, ppo, distanceFrom52Week } from "./indicators.ts";
+import { ema, rsi, roc, ppo, distanceFrom52Week, atr } from "./indicators.ts";
 
 // مقادیر مرجع با pandas (pandas.Series.ewm(adjust=False)) روی همین سری مستقل محاسبه شده‌اند —
 // نه از حافظه، نه از همین پیاده‌سازی — تا واقعاً تست‌کنندهٔ درستی فرمول باشد.
@@ -94,6 +94,27 @@ describe("ppo", () => {
       1.107712,
     ];
     approxArray(ppo(CLOSES, 12, 26, 9).histogram, expected);
+  });
+});
+
+describe("atr", () => {
+  // high/low مستقل از CLOSES بالا ساخته شدند (high=close+1.5, low=close-1.2) تا true range
+  // مؤلفهٔ high-low واقعی هم داشته باشد نه فقط gap با کندل قبل. مقادیر مرجع با pandas
+  // (tr.ewm(alpha=1/14, adjust=False, min_periods=14).mean()) مستقل محاسبه شده‌اند.
+  const HIGHS = CLOSES.map((c) => c + 1.5);
+  const LOWS = CLOSES.map((c) => c - 1.2);
+
+  it("با ATR14 محاسبه‌شده توسط pandas مطابقت دارد", () => {
+    const expected: (number | null)[] = [
+      null, null, null, null, null, null, null, null, null, null, null, null, null, null,
+      3.563485, 3.630379, 3.621066, 3.555275, 3.694184, 3.751743,
+    ];
+    approxArray(atr(HIGHS, LOWS, CLOSES, 14), expected);
+  });
+
+  it("با سری کوتاه‌تر از period+1، همه null است", () => {
+    const result = atr(HIGHS.slice(0, 10), LOWS.slice(0, 10), CLOSES.slice(0, 10), 14);
+    expect(result.every((v) => v === null)).toBe(true);
   });
 });
 

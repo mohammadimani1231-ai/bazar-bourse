@@ -74,6 +74,35 @@ export function ppo(values: number[], fast = 12, slow = 26, signalPeriod = 9): P
   return { ppo: ppoLine, signal: signalLine, histogram };
 }
 
+/**
+ * ATR (Average True Range) به روش Wilder، هم‌ساز با rsi() بالا: seed = اولین true range،
+ * سپس هموارسازی بازگشتی با alpha=1/period (دقیقاً معادل pandas .ewm(alpha=1/period,
+ * adjust=False)). حداقل period+1 مقدار (کندل بستهٔ قبلی برای true range لازم است) — اندیس‌های
+ * قبل از آن null‌اند. برای پیشنهاد حد ضرر در فاز ۸ (lib/position-sizing.ts) استفاده می‌شود.
+ */
+export function atr(highs: number[], lows: number[], closes: number[], period = 14): (number | null)[] {
+  const n = closes.length;
+  const result: (number | null)[] = new Array(n).fill(null);
+  if (n < period + 1) return result;
+
+  const trueRanges: number[] = new Array(n).fill(0);
+  for (let i = 1; i < n; i++) {
+    trueRanges[i] = Math.max(
+      highs[i] - lows[i],
+      Math.abs(highs[i] - closes[i - 1]),
+      Math.abs(lows[i] - closes[i - 1]),
+    );
+  }
+
+  let avgTr = 0;
+  for (let i = 1; i < n; i++) {
+    avgTr = i === 1 ? trueRanges[1] : avgTr + (trueRanges[i] - avgTr) / period;
+    if (i >= period) result[i] = avgTr;
+  }
+
+  return result;
+}
+
 export interface FiftyTwoWeekDistance {
   pctFromHigh: number | null;
   pctFromLow: number | null;

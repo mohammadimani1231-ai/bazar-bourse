@@ -122,6 +122,7 @@ export default async function SymbolPage({
 
   const queueFlags: QueueFlagsData = {
     lockedBuy: boolOf("queue_locked_buy"),
+    lockedSell: boolOf("queue_locked_sell"),
     heavy: boolOf("queue_heavy"),
     queueVelocity: latestOf("queue_velocity"),
     suspiciousVolume: boolOf("suspicious_volume"),

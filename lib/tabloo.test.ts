@@ -162,18 +162,54 @@ describe("isCodeToCode", () => {
 
 describe("queueState", () => {
   it("locked_buy وقتی bid1_price برابر سقف مجاز روز است", () => {
-    const state = queueState({ bid1_price: 500, price_max: 500, bid1_volume: 10, base_volume: 100 });
+    const state = queueState({
+      bid1_price: 500,
+      ask1_price: 505,
+      price_max: 500,
+      price_min: 450,
+      bid1_volume: 10,
+      base_volume: 100,
+    });
     expect(state.lockedBuy).toBe(true);
+    expect(state.lockedSell).toBe(false);
+  });
+
+  it("locked_sell وقتی ask1_price برابر کف مجاز روز است (فاز ۸: هشدار حد ضرر)", () => {
+    const state = queueState({
+      bid1_price: 450,
+      ask1_price: 450,
+      price_max: 500,
+      price_min: 450,
+      bid1_volume: 10,
+      base_volume: 100,
+    });
+    expect(state.lockedSell).toBe(true);
+    expect(state.lockedBuy).toBe(false);
   });
 
   it("heavy وقتی bid1_volume >= base_volume", () => {
-    const state = queueState({ bid1_price: 480, price_max: 500, bid1_volume: 100, base_volume: 100 });
+    const state = queueState({
+      bid1_price: 480,
+      ask1_price: 505,
+      price_max: 500,
+      price_min: 450,
+      bid1_volume: 100,
+      base_volume: 100,
+    });
     expect(state.heavy).toBe(true);
   });
 
   it("با فیلدهای null → null نه false گمراه‌کننده", () => {
-    const state = queueState({ bid1_price: null, price_max: 500, bid1_volume: null, base_volume: 100 });
+    const state = queueState({
+      bid1_price: null,
+      ask1_price: null,
+      price_max: 500,
+      price_min: 450,
+      bid1_volume: null,
+      base_volume: 100,
+    });
     expect(state.lockedBuy).toBeNull();
+    expect(state.lockedSell).toBeNull();
     expect(state.heavy).toBeNull();
   });
 });

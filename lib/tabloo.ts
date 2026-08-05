@@ -152,17 +152,24 @@ export function isCodeToCode(
 
 export interface QueueState {
   lockedBuy: boolean | null;
+  /** صف فروش قفل: بهترین offer دقیقاً روی کف مجاز روز — یعنی نمی‌توانی بفروشی (فاز ۸، هشدار حد ضرر). */
+  lockedSell: boolean | null;
   heavy: boolean | null;
 }
 
 export function queueState(
-  row: Pick<QuoteRow, "bid1_price" | "price_max" | "bid1_volume" | "base_volume">,
+  row: Pick<
+    QuoteRow,
+    "bid1_price" | "ask1_price" | "price_max" | "price_min" | "bid1_volume" | "base_volume"
+  >,
 ): QueueState {
   const lockedBuy =
     row.bid1_price != null && row.price_max != null ? row.bid1_price === row.price_max : null;
+  const lockedSell =
+    row.ask1_price != null && row.price_min != null ? row.ask1_price === row.price_min : null;
   const heavy =
     row.bid1_volume != null && row.base_volume != null ? row.bid1_volume >= row.base_volume : null;
-  return { lockedBuy, heavy };
+  return { lockedBuy, lockedSell, heavy };
 }
 
 export interface QueueVelocity {
