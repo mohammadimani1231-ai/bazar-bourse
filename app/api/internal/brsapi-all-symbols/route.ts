@@ -2,6 +2,9 @@ import { type NextRequest } from "next/server";
 import { fetchBrsApiAllSymbols } from "@/lib/data-sources/brsapi.ts";
 
 export const dynamic = "force-dynamic";
+// fetchBrsApiAllSymbols می‌تواند تا حدود ۲۰ ثانیه طول بکشد (۲ تلاش با connect timeout ~۱۰ ثانیه‌ای
+// undici) — پیش‌فرض Vercel (۱۰ ثانیه) کافی نیست.
+export const maxDuration = 30;
 
 /**
  * پروکسی داخلی برای collect-tse (Supabase Edge Function): وقتی تماس مستقیم آن با BrsApi از
@@ -25,6 +28,9 @@ export async function GET(request: NextRequest) {
     return Response.json(rows);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return Response.json({ error: message }, { status: 502 });
+    // cause دیاگنوستیک واقعی undici (ECONNREFUSED/ETIMEDOUT/گواهی و...) را دارد؛ خودِ message
+    // اغلب فقط «fetch failed» است — برای عیب‌یابی این مسیر مفید نگه داشته شده.
+    const cause = err instanceof Error && err.cause ? String(err.cause) : null;
+    return Response.json({ error: message, cause }, { status: 502 });
   }
 }

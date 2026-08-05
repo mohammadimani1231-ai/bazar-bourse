@@ -57,30 +57,30 @@ export async function fetchBrsApiSymbol(symbol: string, apiKey: string): Promise
  * همهٔ نمادهای بورس/فرابورس در یک درخواست (سهمیهٔ روزانه بسیار محدودتر از تک‌نماد است،
  * پس collect-tse باید همین را صدا بزند و سمت کلاینت فیلتر کند، نه N بار Symbol.php).
  *
- * timeout/retry بالاتر از پیش‌فرض fetchWithRetry: دیده شده (۲۰۲۶-۰۸-۰۵ زنده، حین ساعات بازار)
- * که این endpoint مشخصاً از IP شبکهٔ Supabase Edge Function گاهی چند دقیقه پیاپی روی تایم‌اوت
- * ۱۵ ثانیه‌ای/۱ retry شکست می‌خورد، در حالی‌که از IPهای دیگر (این سندباکس) در ~۳۰۰ms جواب می‌دهد —
- * همان الگوی شناخته‌شدهٔ ناپایداری BrsApi از IPهای ابری خاص (قبلاً روی History.php/
- * Gold_Currency_Pro.php هم دیده شده، مستند در CLAUDE.md بند منابع دیتا)، این‌بار روی این
- * endpoint حجم‌بالا. ۳ تلاش با
- * timeout ۲۰ ثانیه و backoff ۱ ثانیه‌ای (بدترین حالت ~۶۳ ثانیه، امن زیر بازهٔ کرون ۲ دقیقه‌ای)
- * را در برابر یک بلیپ گذرا بسیار مقاوم‌تر می‌کند بدون گیرکردن پایدار روی یک قطعی واقعی طولانی.
+ * **به‌روزرسانی ۲۰۲۶-۰۸-۰۵ با شواهد واقعی، نه فرض:** تست زندهٔ پروکسی Vercel (پایین‌تر) نشان داد
+ * خطای واقعی روی هر دو ابر (Supabase و Vercel) `ConnectTimeoutError` است، نه پاسخ کند — یعنی
+ * این یک قطعی احتمالاً firewall/ASN-محور روی زیرساخت ابری است، نه چیزی که با «آدرس IP دیگر»
+ * قابل دورزدن باشد. مشاهدهٔ واقعی pipeline_health اما نشان داد این قطعی مطلق نیست: از ۳۰۶ اجرای
+ * اخیر، ۶ تا (~۲٪) موفق شدند و همیشه سریع (۳-۴ ثانیه) — پس تلاش بیشتر در بازهٔ زمانی یکسان،
+ * شانس برخورد با آن پنجرهٔ کوچک موفقیت را بالا می‌برد. به‌جای ۳ تلاش با timeout ۲۰ ثانیه (بدترین
+ * حالت ~۶۳ ثانیه)، حالا ۷ تلاش با timeout ۸ ثانیه (بدترین حالت مشابه ~۶۶ ثانیه، هنوز امن زیر
+ * بازهٔ کرون ۲ دقیقه‌ای) — timeout کوتاه‌تر منطقی است چون وقتی این endpoint واقعاً جواب می‌دهد
+ * همیشه در چند ثانیه است، نه نزدیک به مرز timeout.
  */
 export async function fetchBrsApiAllSymbols(apiKey: string): Promise<BrsApiRawSymbolRow[]> {
   const url = `${BRSAPI_ALL_SYMBOLS_URL}?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetchWithRetry(url, {}, { timeoutMs: 20000, retries: 2, backoffMs: 1000 });
+  const res = await fetchWithRetry(url, {}, { timeoutMs: 8000, retries: 6, backoffMs: 500 });
   return (await res.json()) as BrsApiRawSymbolRow[];
 }
 
 /**
  * مسیر جایگزین برای وقتی fetchBrsApiAllSymbols مستقیم شکست بخورد: به‌جای BrsApi، Route Handler
- * خود پروژه در Vercel (`app/api/internal/brsapi-all-symbols`) را صدا می‌زند — که خودش دقیقاً
- * همین fetchBrsApiAllSymbols را از IP/ASN جدا (Vercel، نه Supabase Edge) صدا می‌زند. پیاده‌سازی
- * موازی نیست، فقط یک لایهٔ شبکهٔ دیگر روی همان تابع.
- * دلیل وجودش (۲۰۲۶-۰۸-۰۵): دو روز پیاپی ~۹۸٪ شکست تماس مستقیم از IP خود Supabase Edge Function
- * حین بازار باز (رجوع به CLAUDE.md) — همان الگوی ناپایداری IP-محور BrsApi که قبلاً روی
- * History.php/Gold_Currency_Pro.php هم دیده شده بود، این‌بار برعکس (سندباکس/IPهای دیگر فوری
- * جواب می‌دهند، IP خود Supabase گاهی کاملاً بی‌پاسخ می‌ماند) — افزایش صرف timeout/retry کافی نبود.
+ * خود پروژه در Vercel (`app/api/internal/brsapi-all-symbols`) را صدا می‌زند.
+ * **صادقانه (۲۰۲۶-۰۸-۰۵):** فرضیهٔ اولیه («IP/ASN جدای Vercel این قطعی را دور می‌زند») با تست
+ * زنده رد شد — تماس از Vercel هم دقیقاً با `ConnectTimeoutError` مشابه شکست خورد. این تابع را
+ * حذف نکردیم چون بی‌ضرر است (شکست سریع، بودجهٔ کمی از کرون می‌گیرد) و اگر روزی وضعیت شبکهٔ
+ * Vercel عوض شد بدون تغییر کد فایده می‌دهد؛ ولی **در عمل تکیه‌گاه اصلی همان retry بیشتر روی
+ * تماس مستقیم است**، نه این پروکسی. جزئیات در CLAUDE.md.
  */
 export async function fetchAllSymbolsViaProxy(
   siteUrl: string,
@@ -90,7 +90,7 @@ export async function fetchAllSymbolsViaProxy(
   const res = await fetchWithRetry(
     url,
     { headers: { "x-proxy-secret": proxySecret } },
-    { timeoutMs: 15000, retries: 1, backoffMs: 1000 },
+    { timeoutMs: 8000, retries: 1, backoffMs: 500 },
   );
   return (await res.json()) as BrsApiRawSymbolRow[];
 }
