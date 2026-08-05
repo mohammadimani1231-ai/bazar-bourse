@@ -55,3 +55,35 @@ export function buildDailyCandle(
     adjusted_close: last.close_price,
   };
 }
+
+export interface SeriesPoint {
+  capturedAt: string;
+  value: number | null;
+}
+
+export interface SimpleOhlc {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+}
+
+/**
+ * از اسنپ‌شات‌های عددی یک روز (مثلاً شاخص کل از market_index_quotes)، OHLC می‌سازد — همان اصل
+ * buildDailyCandle بالا (open=اول، close=آخر، high/low=بیشینه/کمینه) ولی برای سری‌های تک‌مقداری
+ * که ستون‌های نماد (حجم/ارزش/حقیقی-حقوقی) ندارند، پس یک تابع جدا و ساده‌تر.
+ */
+export function buildOhlcFromSeries(points: SeriesPoint[]): SimpleOhlc | null {
+  const valid = points.filter((p): p is { capturedAt: string; value: number } => p.value != null);
+  if (valid.length === 0) return null;
+
+  const sorted = [...valid].sort((a, b) => a.capturedAt.localeCompare(b.capturedAt));
+  const values = sorted.map((p) => p.value);
+
+  return {
+    open: values[0],
+    high: Math.max(...values),
+    low: Math.min(...values),
+    close: values[values.length - 1],
+  };
+}

@@ -2,8 +2,46 @@ import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkTodayWasTradingDay } from "../_shared/marketStatus.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
-import { buildDailyCandle } from "../../../lib/transforms/candle.ts";
+import { buildDailyCandle, buildOhlcFromSeries, type SeriesPoint } from "../../../lib/transforms/candle.ts";
 import type { QuoteRow } from "../../../lib/transforms/quote.ts";
+
+/**
+ * از تیک‌های زندهٔ market_index_quotes امروز، کندل روزانهٔ شاخص کل/هم‌وزن benchmark_candles را
+ * می‌سازد — قبل از این incident اصلاً هیچ نویسندهٔ زنده‌ای برای این دو asset نبود (فقط اسکریپت
+ * پایتون یک‌بارمصرف backfill_benchmarks.py). عیناً همان buildOhlcFromSeries که برای collect-tse
+ * هم استفاده می‌شود — بدون پیاده‌سازی موازی.
+ */
+async function buildIndexBenchmarkCandles(
+  client: ReturnType<typeof createServiceClient>,
+  date: string,
+  startUtc: string,
+  endUtc: string,
+): Promise<number> {
+  const { data: indexQuotes, error } = await client
+    .from("market_index_quotes")
+    .select("index_value, index_equal_weight, captured_at")
+    .gte("captured_at", startUtc)
+    .lt("captured_at", endUtc);
+  if (error) throw error;
+
+  const rows = (indexQuotes ?? []) as { index_value: number | null; index_equal_weight: number | null; captured_at: string }[];
+  const tedpixSeries: SeriesPoint[] = rows.map((r) => ({ capturedAt: r.captured_at, value: r.index_value }));
+  const equalWeightSeries: SeriesPoint[] = rows.map((r) => ({ capturedAt: r.captured_at, value: r.index_equal_weight }));
+
+  const tedpixOhlc = buildOhlcFromSeries(tedpixSeries);
+  const equalWeightOhlc = buildOhlcFromSeries(equalWeightSeries);
+
+  const benchmarkCandles = [
+    tedpixOhlc && { asset: "tedpix", date, ...tedpixOhlc },
+    equalWeightOhlc && { asset: "tedpix_equal_weight", date, ...equalWeightOhlc },
+  ].filter((c): c is NonNullable<typeof c> => c != null);
+
+  if (benchmarkCandles.length > 0) {
+    const { error: upsertError } = await client.from("benchmark_candles").upsert(benchmarkCandles, { onConflict: "asset,date" });
+    if (upsertError) throw upsertError;
+  }
+  return benchmarkCandles.length;
+}
 
 Deno.serve(async () => {
   const start = performance.now();
@@ -46,10 +84,18 @@ Deno.serve(async () => {
       if (upsertError) throw upsertError;
     }
 
-    const latencyMs = Math.round(performance.now() - start);
-    await logHealth(client, "build-candles", "ok", `${candles.length} candles for ${date}`, latencyMs);
+    const indexCandles = await buildIndexBenchmarkCandles(client, date, startUtc, endUtc);
 
-    return new Response(JSON.stringify({ ok: true, date, candles: candles.length }), {
+    const latencyMs = Math.round(performance.now() - start);
+    await logHealth(
+      client,
+      "build-candles",
+      "ok",
+      `${candles.length} candles for ${date}, ${indexCandles} index benchmark candles`,
+      latencyMs,
+    );
+
+    return new Response(JSON.stringify({ ok: true, date, candles: candles.length, indexCandles }), {
       headers: { "Content-Type": "application/json" },
     });
   } catch (err) {

@@ -3,6 +3,7 @@ import { fetchWithRetry } from "./http.ts";
 const BRSAPI_SYMBOL_URL = "https://Api.BrsApi.ir/Tsetmc/Symbol.php";
 const BRSAPI_ALL_SYMBOLS_URL = "https://Api.BrsApi.ir/Tsetmc/AllSymbols.php";
 const BRSAPI_GOLD_CURRENCY_URL = "https://Api.BrsApi.ir/Market/Gold_Currency.php";
+const BRSAPI_INDEX_URL = "https://Api.BrsApi.ir/Tsetmc/Index.php";
 
 /** شکل خام یک ردیف نماد از Tsetmc/Symbol.php یا Tsetmc/AllSymbols.php — فقط فیلدهایی که استفاده می‌کنیم. */
 export interface BrsApiRawSymbolRow {
@@ -93,6 +94,32 @@ export async function fetchAllSymbolsViaProxy(
     { timeoutMs: 8000, retries: 1, backoffMs: 500 },
   );
   return (await res.json()) as BrsApiRawSymbolRow[];
+}
+
+/**
+ * خلاصهٔ زندهٔ بازار بورس تهران (نه فرابورس) از `Tsetmc/Index.php?type=1` — کشف‌شده ۲۰۲۶-۰۸-۰۵
+ * حین بررسی علت staleness شاخص کل. بدون مستندات رسمی BrsApi؛ اسکیمای زیر از پاسخ واقعی زنده
+ * استخراج شده (تأیید شد: `index` دقیقاً با عدد نمایشی tsetmc.com مطابقت داشت). `type=2` فرابورس
+ * است (فعلاً استفاده نمی‌شود)، `type=3` فهرست تفکیکی همهٔ زیرشاخص‌ها (فعلاً لازم نیست).
+ */
+export interface BrsApiIndexSummary {
+  date: string; // جلالی، مثل "1405-05-14"
+  time: string; // "HH:MM:SS"
+  state: string; // "باز" | "بسته"
+  index: number; // شاخص کل (TEDPIX)
+  index_change: number; // تغییر مطلق از قیمت پایانی روز قبل
+  index_equalWeight: number;
+  index_equalWeight_change: number;
+  mv: number; // ارزش کل بازار (ریال)
+  tno: number; // تعداد معاملات
+  tval: number; // ارزش کل معاملات بازار (ریال) — کل بورس، نه فقط واچ‌لیست
+  tvol: number; // حجم کل معاملات
+}
+
+export async function fetchBrsApiIndex(apiKey: string): Promise<BrsApiIndexSummary> {
+  const url = `${BRSAPI_INDEX_URL}?key=${encodeURIComponent(apiKey)}&type=1`;
+  const res = await fetchWithRetry(url, {}, { timeoutMs: 8000, retries: 3, backoffMs: 500 });
+  return (await res.json()) as BrsApiIndexSummary;
 }
 
 export interface BrsApiGoldCurrencyItem {

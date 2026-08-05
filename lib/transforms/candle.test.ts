@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildDailyCandle } from "./candle.ts";
+import { buildDailyCandle, buildOhlcFromSeries } from "./candle.ts";
 import type { QuoteRow } from "./quote.ts";
 
 function quote(overrides: Partial<QuoteRow>): QuoteRow {
@@ -79,5 +79,42 @@ describe("buildDailyCandle", () => {
 
   it("برای روز بدون هیچ quote، null برمی‌گرداند", () => {
     expect(buildDailyCandle("خودرو", "2026-08-03", [])).toBeNull();
+  });
+});
+
+describe("buildOhlcFromSeries", () => {
+  it("open از اول، close از آخر، high/low از بیشینه/کمینه", () => {
+    const points = [
+      { capturedAt: "2026-08-05T05:30:00.000Z", value: 5300000 },
+      { capturedAt: "2026-08-05T07:00:00.000Z", value: 5410000 },
+      { capturedAt: "2026-08-05T08:00:00.000Z", value: 5280000 },
+      { capturedAt: "2026-08-05T09:29:00.000Z", value: 5407901 },
+    ];
+    const ohlc = buildOhlcFromSeries(points);
+    expect(ohlc).toEqual({ open: 5300000, high: 5410000, low: 5280000, close: 5407901 });
+  });
+
+  it("ترتیب ورودی را نادیده می‌گیرد و بر اساس capturedAt مرتب می‌کند", () => {
+    const points = [
+      { capturedAt: "2026-08-05T09:00:00.000Z", value: 200 },
+      { capturedAt: "2026-08-05T05:30:00.000Z", value: 100 },
+    ];
+    const ohlc = buildOhlcFromSeries(points);
+    expect(ohlc?.open).toBe(100);
+    expect(ohlc?.close).toBe(200);
+  });
+
+  it("مقادیر null را نادیده می‌گیرد", () => {
+    const points = [
+      { capturedAt: "2026-08-05T05:30:00.000Z", value: null },
+      { capturedAt: "2026-08-05T07:00:00.000Z", value: 100 },
+    ];
+    const ohlc = buildOhlcFromSeries(points);
+    expect(ohlc).toEqual({ open: 100, high: 100, low: 100, close: 100 });
+  });
+
+  it("برای آرایهٔ خالی یا همه-null، null برمی‌گرداند", () => {
+    expect(buildOhlcFromSeries([])).toBeNull();
+    expect(buildOhlcFromSeries([{ capturedAt: "2026-08-05T05:30:00.000Z", value: null }])).toBeNull();
   });
 });

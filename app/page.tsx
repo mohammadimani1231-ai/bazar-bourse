@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { tehranDayBounds } from "@/lib/time/tehranDay.ts";
+import { isMarketOpen } from "@/lib/market-status.ts";
 import { GlobalTickerBar, type TickerItem } from "@/components/GlobalTickerBar";
 import { IndexSummary } from "@/components/IndexSummary";
 import { MarketTreemap, type TreemapItem } from "@/components/MarketTreemap";
@@ -25,6 +26,11 @@ const GLOBAL_ASSET_LABELS: Record<string, string> = {
 };
 const GLOBAL_ASSET_ORDER = Object.keys(GLOBAL_ASSET_LABELS);
 
+// باید دقیقاً با REFERENCE_SYMBOL در supabase/functions/_shared/marketStatus.ts یکی بماند —
+// آن فایل Deno-specific است (npm: specifier) و مستقیم در Next.js قابل import نیست، پس منطق
+// خالص isMarketOpen از lib/market-status.ts دوباره‌استفاده می‌شود، فقط orchestration کوئری تکرار شده.
+const MARKET_STATUS_REFERENCE_SYMBOL = "فملی";
+
 function latestByKey<T extends Record<string, unknown>>(rows: T[], key: keyof T): T[] {
   const seen = new Set<unknown>();
   const out: T[] = [];
@@ -42,8 +48,7 @@ export default async function OverviewPage() {
 
   const [
     { data: globalQuotesRaw },
-    { data: tedpixRows },
-    { data: tedpixEqualWeightRows },
+    { data: marketIndexRows },
     { data: watchlist },
     { data: quotesRaw },
     { data: prevCandlesRaw },
@@ -52,18 +57,25 @@ export default async function OverviewPage() {
     { data: regimeSetting },
     { data: newsRaw },
     { data: latestBriefRaw },
+    { data: holidayRows },
   ] = await Promise.all([
     supabase.from("global_quotes").select("asset, price, change_pct, captured_at").order("captured_at", { ascending: false }).limit(120),
-    supabase.from("benchmark_candles").select("date, close").eq("asset", "tedpix").order("date", { ascending: false }).limit(2),
-    supabase.from("benchmark_candles").select("date, close").eq("asset", "tedpix_equal_weight").order("date", { ascending: false }).limit(2),
+    // منبع زندهٔ شاخص کل/هم‌وزن/ارزش کل بازار (اصلاح incident collect-tse) — نه benchmark_candles
+    // که تنها نویسنده‌اش یک اسکریپت پایتون یک‌بارمصرف بود، رجوع به CLAUDE.md.
+    supabase
+      .from("market_index_quotes")
+      .select("index_value, index_change, index_equal_weight, index_equal_weight_change, total_trade_value, captured_at")
+      .order("captured_at", { ascending: false })
+      .limit(1),
     supabase.from("watchlist").select("symbol, industry"),
-    supabase.from("quotes").select("symbol, last_price, close_price, value, captured_at").order("captured_at", { ascending: false }).limit(200),
+    supabase.from("quotes").select("symbol, last_price, close_price, value, volume, captured_at").order("captured_at", { ascending: false }).limit(200),
     supabase.from("daily_candles").select("symbol, date, final_price").lt("date", today).order("date", { ascending: false }).limit(200),
     supabase.from("tabloo_metrics").select("symbol, value, captured_at").eq("metric", "money_flow").order("captured_at", { ascending: false }).limit(200),
     supabase.from("global_quotes").select("price, captured_at").eq("asset", "tension_index").order("captured_at", { ascending: false }).limit(1),
     supabase.from("settings").select("value").eq("key", "market_regime").maybeSingle(),
     supabase.from("news_items").select("id, title, source, url, matched_keywords, published_at").order("published_at", { ascending: false }).limit(15),
     supabase.from("ai_briefs").select("brief, input_snapshot, created_at").order("created_at", { ascending: false }).limit(1),
+    supabase.from("market_holidays").select("date"),
   ]);
 
   const globalQuotesLatest = latestByKey(globalQuotesRaw ?? [], "asset");
@@ -79,22 +91,31 @@ export default async function OverviewPage() {
     };
   });
 
-  const tedpixLatest = tedpixRows?.[0] ?? null;
-  const tedpixPrev = tedpixRows?.[1] ?? null;
-  const tedpixChangePct =
-    tedpixLatest?.close != null && tedpixPrev?.close
-      ? ((tedpixLatest.close - tedpixPrev.close) / tedpixPrev.close) * 100
-      : null;
+  // BrsApi خودش change مطلق را می‌دهد (نسبت به قیمت پایانی روز قبل)؛ درصدش را این‌طور می‌سازیم:
+  // مقدار قبلی = فعلی − change، درصد = change / مقدار قبلی.
+  function pctFromAbsoluteChange(current: number | null, change: number | null): number | null {
+    if (current == null || change == null) return null;
+    const previous = current - change;
+    return previous === 0 ? null : (change / previous) * 100;
+  }
 
-  const tedpixEqualWeightLatest = tedpixEqualWeightRows?.[0] ?? null;
-  const tedpixEqualWeightPrev = tedpixEqualWeightRows?.[1] ?? null;
-  const tedpixEqualWeightChangePct =
-    tedpixEqualWeightLatest?.close != null && tedpixEqualWeightPrev?.close
-      ? ((tedpixEqualWeightLatest.close - tedpixEqualWeightPrev.close) / tedpixEqualWeightPrev.close) * 100
-      : null;
+  const marketIndexLatest = marketIndexRows?.[0] ?? null;
+  const tedpixChangePct = pctFromAbsoluteChange(marketIndexLatest?.index_value ?? null, marketIndexLatest?.index_change ?? null);
+  const tedpixEqualWeightChangePct = pctFromAbsoluteChange(
+    marketIndexLatest?.index_equal_weight ?? null,
+    marketIndexLatest?.index_equal_weight_change ?? null,
+  );
 
   const quotesLatest = latestByKey(quotesRaw ?? [], "symbol");
   const quotesBySymbol = new Map(quotesLatest.map((r) => [r.symbol, r]));
+
+  // وضعیت واقعی بازار (قید #۱۱ CLAUDE.md) — برای رنگ هشدار AsOfBadge روی هر سه کارت زیر.
+  const holidayDates = new Set((holidayRows ?? []).map((r) => r.date as string));
+  const referenceRecentVolumes = (quotesRaw ?? [])
+    .filter((r) => r.symbol === MARKET_STATUS_REFERENCE_SYMBOL)
+    .map((r) => ({ capturedAt: r.captured_at as string, volume: r.volume as number | null }));
+  const marketStatus = isMarketOpen({ nowUtc: new Date(), holidayDates, recentVolumes: referenceRecentVolumes });
+  const marketOpen = marketStatus.open;
 
   const prevCandlesLatest = latestByKey(prevCandlesRaw ?? [], "symbol");
   const prevCloseBySymbol = new Map(prevCandlesLatest.map((r) => [r.symbol, r.final_price]));
@@ -120,7 +141,9 @@ export default async function OverviewPage() {
     })
     .filter((x): x is TreemapItem => x !== null);
 
-  const totalMarketValue = treemapItems.reduce((sum, i) => sum + i.tradeValue, 0) || null;
+  // ارزش کل معاملات واقعی بازار (کل بورس، نه فقط ۴۵ نماد واچ‌لیست) — از همان تیک زندهٔ شاخص.
+  const totalMarketValue = marketIndexLatest?.total_trade_value ?? null;
+  const marketIndexCapturedAt = marketIndexLatest?.captured_at ?? null;
 
   const industryFlowMap = new Map<string, number>();
   for (const item of treemapItems) {
@@ -152,11 +175,15 @@ export default async function OverviewPage() {
     <div className="flex flex-col gap-4">
       <GlobalTickerBar items={tickerItems} />
       <IndexSummary
-        tedpix={tedpixLatest?.close ?? null}
+        tedpix={marketIndexLatest?.index_value ?? null}
         tedpixChangePct={tedpixChangePct}
-        tedpixEqualWeight={tedpixEqualWeightLatest?.close ?? null}
+        tedpixDate={marketIndexCapturedAt}
+        tedpixEqualWeight={marketIndexLatest?.index_equal_weight ?? null}
         tedpixEqualWeightChangePct={tedpixEqualWeightChangePct}
+        tedpixEqualWeightDate={marketIndexCapturedAt}
         totalMarketValue={totalMarketValue}
+        totalMarketValueCapturedAt={marketIndexCapturedAt}
+        marketOpen={marketOpen}
       />
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="flex flex-col gap-4 lg:col-span-2">
