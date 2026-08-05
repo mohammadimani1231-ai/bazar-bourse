@@ -1,7 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkMarketOpenLight } from "../_shared/marketStatus.ts";
-import { fetchBrsApiAllSymbols } from "../../../lib/data-sources/brsapi.ts";
+import { fetchBrsApiAllSymbols, fetchAllSymbolsViaProxy } from "../../../lib/data-sources/brsapi.ts";
 import { brsApiRowToQuoteRow } from "../../../lib/transforms/quote.ts";
 
 Deno.serve(async () => {
@@ -19,6 +19,8 @@ Deno.serve(async () => {
     }
 
     const brsApiKey = Deno.env.get("BRSAPI_KEY") ?? "";
+    const siteUrl = Deno.env.get("SITE_URL") ?? "https://bazar-bourse.vercel.app";
+    const proxySecret = Deno.env.get("BRSAPI_PROXY_SECRET") ?? "";
 
     const { data: watchlist, error: watchlistError } = await client
       .from("watchlist")
@@ -28,7 +30,17 @@ Deno.serve(async () => {
     const symbols = new Set((watchlist ?? []).map((w) => w.symbol as string));
 
     // یک درخواست بالک برای همهٔ نمادها — سهمیهٔ روزانهٔ تک‌نماد خیلی کمتر از نیاز ماست.
-    const allSymbols = await fetchBrsApiAllSymbols(brsApiKey);
+    // اگر تماس مستقیم از IP خود Supabase شکست بخورد (الگوی شناخته‌شدهٔ ناپایداری BrsApi، رجوع
+    // به CLAUDE.md)، یک‌بار از طریق پروکسی Vercel (IP/ASN جدا) هم امتحان می‌کند.
+    let allSymbols;
+    let viaProxy = false;
+    try {
+      allSymbols = await fetchBrsApiAllSymbols(brsApiKey);
+    } catch (directErr) {
+      if (!proxySecret) throw directErr;
+      allSymbols = await fetchAllSymbolsViaProxy(siteUrl, proxySecret);
+      viaProxy = true;
+    }
     const capturedAt = new Date().toISOString();
 
     const rows = allSymbols
@@ -41,7 +53,13 @@ Deno.serve(async () => {
     }
 
     const latencyMs = Math.round(performance.now() - start);
-    await logHealth(client, "collect-tse", "ok", `${rows.length}/${symbols.size} symbols`, latencyMs);
+    await logHealth(
+      client,
+      "collect-tse",
+      "ok",
+      `${rows.length}/${symbols.size} symbols${viaProxy ? " (via proxy)" : ""}`,
+      latencyMs,
+    );
 
     return new Response(JSON.stringify({ ok: true, inserted: rows.length }), {
       headers: { "Content-Type": "application/json" },

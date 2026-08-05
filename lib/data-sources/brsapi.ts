@@ -72,6 +72,29 @@ export async function fetchBrsApiAllSymbols(apiKey: string): Promise<BrsApiRawSy
   return (await res.json()) as BrsApiRawSymbolRow[];
 }
 
+/**
+ * مسیر جایگزین برای وقتی fetchBrsApiAllSymbols مستقیم شکست بخورد: به‌جای BrsApi، Route Handler
+ * خود پروژه در Vercel (`app/api/internal/brsapi-all-symbols`) را صدا می‌زند — که خودش دقیقاً
+ * همین fetchBrsApiAllSymbols را از IP/ASN جدا (Vercel، نه Supabase Edge) صدا می‌زند. پیاده‌سازی
+ * موازی نیست، فقط یک لایهٔ شبکهٔ دیگر روی همان تابع.
+ * دلیل وجودش (۲۰۲۶-۰۸-۰۵): دو روز پیاپی ~۹۸٪ شکست تماس مستقیم از IP خود Supabase Edge Function
+ * حین بازار باز (رجوع به CLAUDE.md) — همان الگوی ناپایداری IP-محور BrsApi که قبلاً روی
+ * History.php/Gold_Currency_Pro.php هم دیده شده بود، این‌بار برعکس (سندباکس/IPهای دیگر فوری
+ * جواب می‌دهند، IP خود Supabase گاهی کاملاً بی‌پاسخ می‌ماند) — افزایش صرف timeout/retry کافی نبود.
+ */
+export async function fetchAllSymbolsViaProxy(
+  siteUrl: string,
+  proxySecret: string,
+): Promise<BrsApiRawSymbolRow[]> {
+  const url = `${siteUrl.replace(/\/$/, "")}/api/internal/brsapi-all-symbols`;
+  const res = await fetchWithRetry(
+    url,
+    { headers: { "x-proxy-secret": proxySecret } },
+    { timeoutMs: 15000, retries: 1, backoffMs: 1000 },
+  );
+  return (await res.json()) as BrsApiRawSymbolRow[];
+}
+
 export interface BrsApiGoldCurrencyItem {
   symbol: string;
   price: number;

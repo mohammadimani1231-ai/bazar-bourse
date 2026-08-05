@@ -13,6 +13,11 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith("/login")) {
     return NextResponse.next();
   }
+  // فراخوانندهٔ این مسیر یک Supabase Edge Function است، نه مرورگر — کوکی سشن ندارد و نباید
+  // به /login ریدایرکت شود. خودش با هدر سرّی BRSAPI_PROXY_SECRET محافظت می‌شود (route.ts).
+  if (pathname.startsWith("/api/internal/")) {
+    return NextResponse.next();
+  }
 
   const expectedPassword = process.env.SITE_PASSWORD;
   const expectedHash = expectedPassword ? sitePasswordHash(expectedPassword) : null;
