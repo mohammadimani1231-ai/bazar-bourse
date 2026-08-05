@@ -7,6 +7,34 @@ import { formatSignalAlert, formatTensionAlert, formatPipelineDownAlert } from "
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://bazar-bourse.vercel.app";
 const SIGNAL_LOOKBACK_FALLBACK_MIN = 15; // اگر این قانون هنوز هرگز شلیک نشده
 
+type Client = ReturnType<typeof createServiceClient>;
+
+/**
+ * سر هر ساعت که چند کرون هم‌زمان شلیک می‌کنند، PostgREST گاهی خطای گذرای
+ * `PGRST303 JWT issued at future` (اسکیوی ساعت زیر بار، سمت زیرساخت Supabase) می‌دهد —
+ * مستند در CLAUDE.md. یک بار retry بعد از تأخیر کوتاه معمولاً کافی است چون خودِ اسکیو گذراست.
+ */
+async function withJwtSkewRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const code = err && typeof err === "object" ? (err as { code?: string }).code : undefined;
+    if (code !== "PGRST303") throw err;
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    return await fn();
+  }
+}
+
+async function fetchActionRules(client: Client): Promise<RuleRow[]> {
+  const { data, error } = await client
+    .from("alert_rules")
+    .select("id, name, condition, severity, fire_policy, cooldown_minutes, enabled")
+    .eq("severity", "action")
+    .eq("enabled", true);
+  if (error) throw error;
+  return (data ?? []) as RuleRow[];
+}
+
 interface RuleRow {
   id: number;
   name: string;
@@ -29,13 +57,7 @@ Deno.serve(async () => {
   const fired: string[] = [];
 
   try {
-    const { data: rulesRaw, error: rulesError } = await client
-      .from("alert_rules")
-      .select("id, name, condition, severity, fire_policy, cooldown_minutes, enabled")
-      .eq("severity", "action")
-      .eq("enabled", true);
-    if (rulesError) throw rulesError;
-    const rules = (rulesRaw ?? []) as RuleRow[];
+    const rules = await withJwtSkewRetry(() => fetchActionRules(client));
 
     for (const rule of rules) {
       const { data: lastLog } = await client
