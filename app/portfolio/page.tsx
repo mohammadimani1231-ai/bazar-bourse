@@ -29,10 +29,13 @@ export default async function PortfolioPage() {
       .from("paper_trades")
       .select("id, symbol, signal_id, entry_price, stop_loss, share_count, entry_date, exit_price, exit_date, status, notes")
       .order("created_at", { ascending: false }),
-    supabase.from("watchlist").select("symbol, industry"),
+    supabase.from("watchlist").select("symbol, industry, company_name"),
   ]);
 
   const industryOf = new Map((watchlist ?? []).map((w) => [w.symbol as string, (w.industry as string | null) ?? "سایر"]));
+  const symbolOptions = (watchlist ?? [])
+    .map((w) => ({ symbol: w.symbol as string, companyName: (w.company_name as string | null) ?? null }))
+    .sort((a, b) => a.symbol.localeCompare(b.symbol, "fa"));
   const rows = (trades ?? []) as PaperTradeRow[];
   const openTrades = rows.filter((t) => t.status === "open");
   const closedTrades = rows.filter((t) => t.status === "closed");
@@ -168,7 +171,7 @@ export default async function PortfolioPage() {
         </div>
       )}
 
-      <PortfolioClient openPositions={openPositions} closedPositions={closedPositions} />
+      <PortfolioClient openPositions={openPositions} closedPositions={closedPositions} symbolOptions={symbolOptions} />
 
       <div className="rounded-lg border border-border bg-surface p-3">
         <h2 className="mb-2 text-sm font-bold">منحنی سود/زیان محقق‌شدهٔ تجمعی</h2>

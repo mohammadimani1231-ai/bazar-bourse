@@ -5,6 +5,8 @@ import { Briefcase, PlusCircle } from "lucide-react";
 import { openPaperTrade, closePaperTrade } from "@/app/actions/paperTrades.ts";
 import { formatFaNumber, formatFaPercent } from "@/lib/format.ts";
 import { EmptyState } from "@/components/EmptyState";
+import { SymbolPicker, type SymbolOption } from "@/components/SymbolPicker";
+import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 
 export interface OpenPositionRow {
   id: number;
@@ -54,12 +56,11 @@ function CloseTradeRow({ position }: { position: OpenPositionRow }) {
 
   return (
     <div className="flex items-center gap-1">
-      <input
-        type="number"
-        min={0}
-        className={`${inputClass} w-20`}
+      <FormattedNumberInput
+        className={`${inputClass} w-24`}
+        placeholder="ریال"
         value={exitPrice}
-        onChange={(e) => setExitPrice(Number(e.target.value))}
+        onChange={(v) => setExitPrice(v === "" ? 0 : v)}
       />
       <button
         onClick={handleClose}
@@ -73,25 +74,29 @@ function CloseTradeRow({ position }: { position: OpenPositionRow }) {
   );
 }
 
-function AddTradeForm({ onDone }: { onDone: () => void }) {
+function AddTradeForm({ onDone, symbolOptions }: { onDone: () => void; symbolOptions: SymbolOption[] }) {
   const [symbol, setSymbol] = useState("");
-  const [entryPrice, setEntryPrice] = useState(0);
+  const [entryPrice, setEntryPrice] = useState<number | "">("");
   const [stopLoss, setStopLoss] = useState<number | "">("");
-  const [shareCount, setShareCount] = useState(0);
+  const [shareCount, setShareCount] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!symbol) {
+      setError("نماد را از لیست انتخاب کن");
+      return;
+    }
     startTransition(async () => {
       try {
         await openPaperTrade({
-          symbol: symbol.trim(),
+          symbol,
           signalId: null,
-          entryPrice,
+          entryPrice: entryPrice === "" ? 0 : entryPrice,
           stopLoss: stopLoss === "" ? null : stopLoss,
-          shareCount,
+          shareCount: shareCount === "" ? 0 : shareCount,
           notes: null,
         });
         onDone();
@@ -105,39 +110,19 @@ function AddTradeForm({ onDone }: { onDone: () => void }) {
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-surface-2/40 p-3">
       <div>
         <label className="mb-1 block text-[10px] text-muted">نماد</label>
-        <input className={inputClass} value={symbol} onChange={(e) => setSymbol(e.target.value)} required />
+        <SymbolPicker className={inputClass} options={symbolOptions} value={symbol} onChange={setSymbol} />
       </div>
       <div>
-        <label className="mb-1 block text-[10px] text-muted">قیمت ورود</label>
-        <input
-          type="number"
-          min={0}
-          className={inputClass}
-          value={entryPrice}
-          onChange={(e) => setEntryPrice(Number(e.target.value))}
-          required
-        />
+        <label className="mb-1 block text-[10px] text-muted">قیمت ورود (ریال)</label>
+        <FormattedNumberInput className={inputClass} placeholder="۰" value={entryPrice} onChange={setEntryPrice} />
       </div>
       <div>
-        <label className="mb-1 block text-[10px] text-muted">حد ضرر (اختیاری)</label>
-        <input
-          type="number"
-          min={0}
-          className={inputClass}
-          value={stopLoss}
-          onChange={(e) => setStopLoss(e.target.value === "" ? "" : Number(e.target.value))}
-        />
+        <label className="mb-1 block text-[10px] text-muted">حد ضرر — قیمت مطلق (ریال، اختیاری)</label>
+        <FormattedNumberInput className={inputClass} placeholder="بدون حد ضرر" value={stopLoss} onChange={setStopLoss} />
       </div>
       <div>
         <label className="mb-1 block text-[10px] text-muted">تعداد سهم</label>
-        <input
-          type="number"
-          min={1}
-          className={inputClass}
-          value={shareCount}
-          onChange={(e) => setShareCount(Number(e.target.value))}
-          required
-        />
+        <FormattedNumberInput className={inputClass} placeholder="۰" value={shareCount} onChange={setShareCount} />
       </div>
       <button
         type="submit"
@@ -154,9 +139,11 @@ function AddTradeForm({ onDone }: { onDone: () => void }) {
 export function PortfolioClient({
   openPositions,
   closedPositions,
+  symbolOptions,
 }: {
   openPositions: OpenPositionRow[];
   closedPositions: ClosePositionRow[];
+  symbolOptions: SymbolOption[];
 }) {
   const [showAddForm, setShowAddForm] = useState(false);
 
@@ -173,7 +160,11 @@ export function PortfolioClient({
             ثبت معاملهٔ دستی
           </button>
         </div>
-        {showAddForm && <div className="mb-3"><AddTradeForm onDone={() => setShowAddForm(false)} /></div>}
+        {showAddForm && (
+          <div className="mb-3">
+            <AddTradeForm onDone={() => setShowAddForm(false)} symbolOptions={symbolOptions} />
+          </div>
+        )}
         {openPositions.length === 0 ? (
           <EmptyState icon={Briefcase} title="پوزیشن بازی ثبت نشده" description="از صفحهٔ سیگنال‌ها یا فرم بالا معامله ثبت کن." />
         ) : (

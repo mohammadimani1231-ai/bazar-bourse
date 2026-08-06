@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateRiskSettings } from "@/app/actions/risk.ts";
 import { MARKET_REGIMES, type MarketRegime } from "@/lib/marketRegime.ts";
+import { FormattedNumberInput } from "@/components/FormattedNumberInput";
 
 const REGIME_LABELS: Record<MarketRegime, string> = {
   normal: "عادی",
@@ -57,13 +58,12 @@ export function RiskSettingsForm({ initial }: { initial: RiskSettingsFormValues 
   return (
     <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4 rounded-lg border border-border bg-surface p-4">
       <div>
-        <label className={labelClass}>کل سرمایهٔ قابل تخصیص (تومان)</label>
-        <input
-          type="number"
-          min={0}
+        <label className={labelClass}>کل سرمایهٔ قابل تخصیص (ریال)</label>
+        <FormattedNumberInput
           className={inputClass}
+          placeholder="۰"
           value={totalCapital}
-          onChange={(e) => setTotalCapital(Number(e.target.value))}
+          onChange={(v) => setTotalCapital(v === "" ? 0 : v)}
         />
       </div>
 
