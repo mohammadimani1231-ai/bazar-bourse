@@ -90,11 +90,11 @@ export default async function HealthPage() {
                     {STATUS_LABEL[row.status] ?? row.status}
                   </span>
                 </td>
-                <td className="ltr-nums p-2 text-muted">{row.latency_ms == null ? "—" : `${formatFaNumber(row.latency_ms)}ms`}</td>
+                <td className="ltr-nums p-2 text-right text-muted">{row.latency_ms == null ? "—" : `${formatFaNumber(row.latency_ms)}ms`}</td>
                 <td className="max-w-xs truncate p-2 text-muted" title={row.detail ?? ""}>
                   {row.detail ?? "—"}
                 </td>
-                <td className="ltr-nums p-2 text-muted">{formatJalaliDateTime(row.checked_at)}</td>
+                <td className="ltr-nums p-2 text-right text-muted">{formatJalaliDateTime(row.checked_at)}</td>
               </tr>
             ))}
           </tbody>

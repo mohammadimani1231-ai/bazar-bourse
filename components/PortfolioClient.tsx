@@ -261,11 +261,11 @@ export function PortfolioClient({
                       <div className="font-bold">{p.symbol}</div>
                       <div className="text-[10px] text-muted">{p.industry} · {p.entryDateFa}</div>
                     </td>
-                    <td className="ltr-nums p-2">{formatFaNumber(p.entryPrice)}</td>
-                    <td className="ltr-nums p-2">{p.stopLoss == null ? "—" : formatFaNumber(p.stopLoss)}</td>
-                    <td className="ltr-nums p-2">{formatFaNumber(p.shareCount)}</td>
-                    <td className="ltr-nums p-2">{formatFaNumber(p.positionValue)}</td>
-                    <td className={`ltr-nums p-2 font-bold ${p.unrealizedPnl == null ? "text-muted" : p.unrealizedPnl >= 0 ? "text-up" : "text-down"}`}>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(p.entryPrice)}</td>
+                    <td className="ltr-nums p-2 text-right">{p.stopLoss == null ? "—" : formatFaNumber(p.stopLoss)}</td>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(p.shareCount)}</td>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(p.positionValue)}</td>
+                    <td className={`ltr-nums p-2 text-right font-bold ${p.unrealizedPnl == null ? "text-muted" : p.unrealizedPnl >= 0 ? "text-up" : "text-down"}`}>
                       {p.unrealizedPnl == null ? "—" : `${formatFaNumber(p.unrealizedPnl)} (${formatFaPercent(p.unrealizedPnlPct)})`}
                     </td>
                     <td className="p-2">
@@ -298,9 +298,9 @@ export function PortfolioClient({
                 {[...closedPositions].reverse().map((c) => (
                   <tr key={c.id} className="border-b border-border/60">
                     <td className="p-2 font-bold">{c.symbol}</td>
-                    <td className="ltr-nums p-2">{formatFaNumber(c.entryPrice)} → {formatFaNumber(c.exitPrice)}</td>
-                    <td className="ltr-nums p-2 text-muted">{c.entryDateFa} → {c.exitDateFa}</td>
-                    <td className={`ltr-nums p-2 font-bold ${c.realizedPnl >= 0 ? "text-up" : "text-down"}`}>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(c.entryPrice)} → {formatFaNumber(c.exitPrice)}</td>
+                    <td className="ltr-nums p-2 text-right text-muted">{c.entryDateFa} → {c.exitDateFa}</td>
+                    <td className={`ltr-nums p-2 text-right font-bold ${c.realizedPnl >= 0 ? "text-up" : "text-down"}`}>
                       {formatFaNumber(c.realizedPnl)} ({formatFaPercent(c.realizedPnlPct)})
                     </td>
                   </tr>

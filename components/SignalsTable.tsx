@@ -137,9 +137,9 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                           {directionLabel(row.direction)}
                         </span>
                       </td>
-                      <td className="ltr-nums p-2">{formatFaNumber(row.score, 0)}</td>
+                      <td className="ltr-nums p-2 text-right">{formatFaNumber(row.score, 0)}</td>
                       <td className="p-2 text-muted">{row.regime}</td>
-                      <td className="ltr-nums p-2 text-muted">{formatJalaliDateTime(row.createdAt)}</td>
+                      <td className="ltr-nums p-2 text-right text-muted">{formatJalaliDateTime(row.createdAt)}</td>
                     </tr>
                     {expanded && (
                       <tr key={`${row.id}-detail`} className="border-b border-border/60 bg-surface-2/40">

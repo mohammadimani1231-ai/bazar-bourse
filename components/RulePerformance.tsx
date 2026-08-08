@@ -69,9 +69,9 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
                 {stats.map((s) => (
                   <tr key={s.rule} className="border-b border-border/60">
                     <td className="p-2">{s.rule}</td>
-                    <td className="ltr-nums p-2">{formatFaNumber(s.count)}</td>
-                    <td className="ltr-nums p-2">{formatFaPercent(s.winRate, 1)}</td>
-                    <td className="ltr-nums p-2">{s.profitFactor == null ? "—" : formatFaNumber(s.profitFactor, 2)}</td>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(s.count)}</td>
+                    <td className="ltr-nums p-2 text-right">{formatFaPercent(s.winRate, 1)}</td>
+                    <td className="ltr-nums p-2 text-right">{s.profitFactor == null ? "—" : formatFaNumber(s.profitFactor, 2)}</td>
                   </tr>
                 ))}
               </tbody>
