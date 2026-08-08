@@ -118,7 +118,10 @@ export interface BrsApiIndexSummary {
 
 export async function fetchBrsApiIndex(apiKey: string): Promise<BrsApiIndexSummary> {
   const url = `${BRSAPI_INDEX_URL}?key=${encodeURIComponent(apiKey)}&type=1`;
-  const res = await fetchWithRetry(url, {}, { timeoutMs: 8000, retries: 3, backoffMs: 500 });
+  // ۲۰۲۶-۰۸-۰۸: pipeline_health نشان داد این endpoint هم از IP سرور نرخ خطای ۱۰۰٪ داشت
+  // («signal aborted» = timeout) — همان الگوی fetchBrsApiAllSymbols، همان رفع: retry بیشتر
+  // با timeout کوتاه‌تر، بودجهٔ کل هنوز امن زیر بازهٔ کرون ۲ دقیقه‌ای (۵-۹ UTC).
+  const res = await fetchWithRetry(url, {}, { timeoutMs: 8000, retries: 6, backoffMs: 500 });
   return (await res.json()) as BrsApiIndexSummary;
 }
 
@@ -137,6 +140,8 @@ export interface BrsApiGoldCurrencyResponse {
 /** قیمت لحظه‌ای طلا/سکه/ارز (نرخ بازار آزاد) از BrsApi (Market/Gold_Currency.php). */
 export async function fetchBrsApiGoldCurrency(apiKey: string): Promise<BrsApiGoldCurrencyResponse> {
   const url = `${BRSAPI_GOLD_CURRENCY_URL}?key=${encodeURIComponent(apiKey)}`;
-  const res = await fetchWithRetry(url);
+  // ۲۰۲۶-۰۸-۰۸: بدون آپشن یعنی فقط ۱ تلاش (پیش‌فرض fetchWithRetry) — pipeline_health نشان داد
+  // این endpoint هم مدام «signal aborted» می‌دهد؛ همان رفع AllSymbols/Index: retry بیشتر.
+  const res = await fetchWithRetry(url, {}, { timeoutMs: 8000, retries: 6, backoffMs: 500 });
   return (await res.json()) as BrsApiGoldCurrencyResponse;
 }

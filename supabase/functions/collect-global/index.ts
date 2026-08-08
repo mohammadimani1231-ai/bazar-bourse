@@ -53,7 +53,10 @@ Deno.serve(async () => {
   }
 
   const latencyMs = Math.round(performance.now() - start);
-  const status = errors.length === 0 ? "ok" : rows.length > 0 ? "ok" : "error";
+  // ۲۰۲۶-۰۸-۰۸: قبلاً اگر فقط Yahoo موفق می‌شد ولی BrsApi (طلا/ارز داخلی) هفته‌ها fail می‌کرد،
+  // چون rows.length>0 بود status همچنان "ok" ثبت می‌شد — یعنی شکست جزئی هیچ‌وقت هشدار نمی‌داد.
+  // حالا هر خطایی (حتی جزئی) status="error" می‌شود؛ detail هنوز می‌گوید کدام بخش موفق بود.
+  const status = errors.length === 0 ? "ok" : "error";
   await logHealth(client, "collect-global", status, errors.join("; ") || `${rows.length} assets`, latencyMs);
 
   return new Response(JSON.stringify({ ok: errors.length === 0, inserted: rows.length, errors }), {
