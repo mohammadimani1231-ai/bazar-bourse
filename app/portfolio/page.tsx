@@ -137,19 +137,19 @@ export default async function PortfolioPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted">پوزیشن‌های باز</p>
-          <p className="ltr-nums text-lg font-bold">{openPositions.length}</p>
+          <p className="ltr-nums text-right text-lg font-bold">{openPositions.length}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted">ارزش پوزیشن‌های باز</p>
-          <p className="ltr-nums text-lg font-bold">{formatFaNumber(totalOpenValue)}</p>
+          <p className="ltr-nums text-right text-lg font-bold">{formatFaNumber(totalOpenValue)}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted">درصد سرمایهٔ درگیر</p>
-          <p className="ltr-nums text-lg font-bold">{totalOpenPct == null ? "—" : formatFaPercent(totalOpenPct)}</p>
+          <p className="ltr-nums text-right text-lg font-bold">{totalOpenPct == null ? "—" : formatFaPercent(totalOpenPct)}</p>
         </div>
         <div className="rounded-lg border border-border bg-surface p-3">
           <p className="text-xs text-muted">معاملات بسته‌شده</p>
-          <p className="ltr-nums text-lg font-bold">{closedPositions.length}</p>
+          <p className="ltr-nums text-right text-lg font-bold">{closedPositions.length}</p>
         </div>
       </div>
 

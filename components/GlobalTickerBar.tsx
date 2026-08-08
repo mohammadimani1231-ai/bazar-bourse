@@ -16,9 +16,9 @@ export function GlobalTickerBar({ items }: { items: TickerItem[] }) {
         {items.map((item) => (
           <div key={item.asset} className="flex flex-col gap-1 px-4 py-3">
             <span className="text-xs text-muted">{item.label}</span>
-            <span className="ltr-nums text-sm font-bold">{formatFaNumber(item.price, 0)}</span>
+            <span className="ltr-nums text-right text-sm font-bold">{formatFaNumber(item.price, 0)}</span>
             <span
-              className={`ltr-nums text-xs ${
+              className={`ltr-nums text-right text-xs ${
                 item.changePct == null
                   ? "text-muted"
                   : item.changePct > 0
@@ -31,7 +31,7 @@ export function GlobalTickerBar({ items }: { items: TickerItem[] }) {
               {formatFaPercent(item.changePct)}
             </span>
             {item.capturedAt && (
-              <span className="ltr-nums text-[10px] text-muted/70">
+              <span className="ltr-nums text-right text-[10px] text-muted/70">
                 {formatTehranTime(item.capturedAt)}
               </span>
             )}

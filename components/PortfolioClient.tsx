@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Briefcase, PlusCircle } from "lucide-react";
 import { openPaperTrade, closePaperTrade } from "@/app/actions/paperTrades.ts";
 import { formatFaNumber, formatFaPercent } from "@/lib/format.ts";
 import { EmptyState } from "@/components/EmptyState";
 import { SymbolPicker, type SymbolOption } from "@/components/SymbolPicker";
 import { FormattedNumberInput } from "@/components/FormattedNumberInput";
+import { getSupabaseBrowserClient } from "@/lib/supabase/browserClient.ts";
+import { atr } from "@/lib/indicators.ts";
+import { getStopLossWarnings, suggestStopLossFromAtr } from "@/lib/position-sizing.ts";
 
 export interface OpenPositionRow {
   id: number;
@@ -80,7 +83,51 @@ function AddTradeForm({ onDone, symbolOptions }: { onDone: () => void; symbolOpt
   const [stopLoss, setStopLoss] = useState<number | "">("");
   const [shareCount, setShareCount] = useState<number | "">("");
   const [error, setError] = useState<string | null>(null);
+  const [atrHint, setAtrHint] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const entryPriceTouchedRef = useRef(false);
+  const stopLossTouchedRef = useRef(false);
+
+  useEffect(() => {
+    entryPriceTouchedRef.current = false;
+    stopLossTouchedRef.current = false;
+    setAtrHint(null);
+    if (!symbol) return;
+
+    let cancelled = false;
+    async function load() {
+      const supabase = getSupabaseBrowserClient();
+      const [{ data: quote }, { data: candlesRaw }] = await Promise.all([
+        supabase.from("quotes").select("last_price").eq("symbol", symbol).order("captured_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("daily_candles").select("high, low, close").eq("symbol", symbol).order("date", { ascending: false }).limit(30),
+      ]);
+      if (cancelled || !quote?.last_price) return;
+
+      const candles = [...(candlesRaw ?? [])].reverse();
+      const highs = candles.map((c) => c.high as number);
+      const lows = candles.map((c) => c.low as number);
+      const closes = candles.map((c) => c.close as number);
+      const atrSeries = atr(highs, lows, closes, 14);
+      const lastAtr = [...atrSeries].reverse().find((v) => v != null) ?? null;
+      if (lastAtr == null) return;
+
+      const entryPriceCandidate = quote.last_price as number;
+      const stopLossCandidate = suggestStopLossFromAtr(entryPriceCandidate, lastAtr);
+      if (cancelled) return;
+
+      if (!entryPriceTouchedRef.current) setEntryPrice(entryPriceCandidate);
+      if (!stopLossTouchedRef.current) setStopLoss(stopLossCandidate);
+      setAtrHint("پیشنهاد بر اساس ATR۱۴×۱٫۵ — قابل ویرایش");
+    }
+    load().catch(() => {
+      /* پیشنهاد پیش‌فرض صرفاً کمکی است — شکست بی‌صدا، بدون خطا برای کاربر */
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [symbol]);
+
+  const stopLossWarnings = entryPrice !== "" && stopLoss !== "" ? getStopLossWarnings(entryPrice, stopLoss) : [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -114,11 +161,28 @@ function AddTradeForm({ onDone, symbolOptions }: { onDone: () => void; symbolOpt
       </div>
       <div>
         <label className="mb-1 block text-[10px] text-muted">قیمت ورود (ریال)</label>
-        <FormattedNumberInput className={inputClass} placeholder="۰" value={entryPrice} onChange={setEntryPrice} />
+        <FormattedNumberInput
+          className={inputClass}
+          placeholder="۰"
+          value={entryPrice}
+          onChange={(v) => {
+            entryPriceTouchedRef.current = true;
+            setEntryPrice(v);
+          }}
+        />
       </div>
       <div>
         <label className="mb-1 block text-[10px] text-muted">حد ضرر — قیمت مطلق (ریال، اختیاری)</label>
-        <FormattedNumberInput className={inputClass} placeholder="بدون حد ضرر" value={stopLoss} onChange={setStopLoss} />
+        <FormattedNumberInput
+          className={inputClass}
+          placeholder="بدون حد ضرر"
+          value={stopLoss}
+          onChange={(v) => {
+            stopLossTouchedRef.current = true;
+            setStopLoss(v);
+          }}
+        />
+        {atrHint && <p className="mt-0.5 text-[10px] text-muted">{atrHint}</p>}
       </div>
       <div>
         <label className="mb-1 block text-[10px] text-muted">تعداد سهم</label>
@@ -132,6 +196,15 @@ function AddTradeForm({ onDone, symbolOptions }: { onDone: () => void; symbolOpt
         ثبت
       </button>
       {error && <span className="text-[10px] text-down">{error}</span>}
+      {stopLossWarnings.length > 0 && (
+        <ul className="flex w-full flex-col gap-0.5">
+          {stopLossWarnings.map((w, i) => (
+            <li key={i} className="text-[10px] text-down">
+              ⚠ {w}
+            </li>
+          ))}
+        </ul>
+      )}
     </form>
   );
 }

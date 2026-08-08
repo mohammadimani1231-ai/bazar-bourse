@@ -18,7 +18,7 @@ function IndexCard({
     <div className="rounded-lg border border-border bg-surface p-3">
       <p className="text-xs text-muted">{label}</p>
       <div className="flex items-baseline gap-2">
-        <p className="ltr-nums text-2xl font-bold">{formatFaNumber(value)}</p>
+        <p className="ltr-nums text-right text-2xl font-bold">{formatFaNumber(value)}</p>
         <p
           className={`ltr-nums text-sm font-bold ${
             changePct == null ? "text-muted" : changePct >= 0 ? "text-up" : "text-down"
@@ -68,7 +68,7 @@ export function IndexSummary({
       <div className="rounded-lg border border-border bg-surface p-3">
         {/* از market_index_quotes (tval زندهٔ BrsApi) — واقعاً کل بازار است، نه فقط واچ‌لیست. */}
         <p className="text-xs text-muted">ارزش معاملات بازار (امروز)</p>
-        <p className="ltr-nums text-2xl font-bold">{formatFaCompactRial(totalMarketValue)}</p>
+        <p className="ltr-nums text-right text-2xl font-bold">{formatFaCompactRial(totalMarketValue)}</p>
         <div className="mt-1">
           <AsOfBadge capturedAt={totalMarketValueCapturedAt} marketOpen={marketOpen} />
         </div>

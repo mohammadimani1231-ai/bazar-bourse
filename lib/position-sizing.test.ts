@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePositionSize, suggestStopLossFromAtr, type PositionSizingInput } from "./position-sizing.ts";
+import { calculatePositionSize, getStopLossWarnings, suggestStopLossFromAtr, type PositionSizingInput } from "./position-sizing.ts";
 
 const REGIME_MULTIPLIER = { normal: 1, war_risk: 0.5, agreement_hope: 0.75 };
 
@@ -87,5 +87,24 @@ describe("suggestStopLossFromAtr", () => {
 
   it("ضریب پیش‌فرض ۱٫۵ است", () => {
     expect(suggestStopLossFromAtr(1000, 20)).toBe(1000 - 30);
+  });
+});
+
+describe("getStopLossWarnings", () => {
+  it("حد ضرر پایین‌تر از ورود (حالت طبیعی long) → بدون هشدار", () => {
+    expect(getStopLossWarnings(1000, 950)).toEqual([]);
+  });
+
+  it("حد ضرر برابر ورود → هشدار می‌دهد", () => {
+    expect(getStopLossWarnings(1000, 1000).length).toBeGreaterThan(0);
+  });
+
+  it("حد ضرر بالاتر از ورود → هشدار می‌دهد", () => {
+    expect(getStopLossWarnings(1000, 1500).length).toBeGreaterThan(0);
+  });
+
+  it("قیمت ورود نامعتبر (صفر/منفی) → بدون هشدار (چیزی برای اعتبارسنجی نیست)", () => {
+    expect(getStopLossWarnings(0, 100)).toEqual([]);
+    expect(getStopLossWarnings(-10, 100)).toEqual([]);
   });
 });

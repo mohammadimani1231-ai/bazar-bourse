@@ -102,3 +102,15 @@ export function calculatePositionSize(input: PositionSizingInput): PositionSizin
 export function suggestStopLossFromAtr(entryPrice: number, atrValue: number, multiplier = 1.5): number {
   return entryPrice - atrValue * multiplier;
 }
+
+/**
+ * هشدار غیرمسدودکننده برای فرم ثبت دستی معامله: چون paper_trades فقط long است، حد ضرر
+ * مساوی یا بالاتر از قیمت ورود منطقی نیست. فقط هشدار می‌دهد، ثبت را رد نمی‌کند.
+ */
+export function getStopLossWarnings(entryPrice: number, stopLossPrice: number): string[] {
+  if (entryPrice <= 0) return [];
+  if (stopLossPrice >= entryPrice) {
+    return ["حد ضرر مساوی یا بالاتر از قیمت ورود است — چون این دفتر فقط پوزیشن خرید (long) دارد، منطقی نیست"];
+  }
+  return [];
+}

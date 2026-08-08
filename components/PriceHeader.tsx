@@ -72,7 +72,7 @@ export function PriceHeader({
           <p className="text-xs text-muted">آخرین قیمت (pl)</p>
           <div className="flex items-baseline gap-2">
             <PriceFlash value={snapshot.lastPrice}>
-              <p className="ltr-nums px-1 text-2xl font-bold">{formatFaNumber(snapshot.lastPrice)}</p>
+              <p className="ltr-nums px-1 text-right text-2xl font-bold">{formatFaNumber(snapshot.lastPrice)}</p>
             </PriceFlash>
             {changePct != null && (
               <span className={`ltr-nums text-sm font-bold ${changePct >= 0 ? "text-up" : "text-down"}`}>
@@ -83,7 +83,7 @@ export function PriceHeader({
         </div>
         <div>
           <p className="text-xs text-muted">قیمت پایانی (pc)</p>
-          <p className="ltr-nums text-sm font-bold text-muted">{formatFaNumber(snapshot.closePrice)}</p>
+          <p className="ltr-nums text-right text-sm font-bold text-muted">{formatFaNumber(snapshot.closePrice)}</p>
         </div>
       </div>
       {snapshot.capturedAt && (
