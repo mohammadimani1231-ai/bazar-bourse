@@ -60,13 +60,16 @@ npx tsx relay.mjs global-domestic
 
 ## کار باقی‌مانده / محدودیت شناخته‌شده
 
-- **pg_cron روی Supabase برای `collect-tse` و `collect-market-index` باید unschedule شود**
-  (چون این‌ها را دیگر VPS انجام می‌دهد، نه Supabase — وگرنه دو منبع هم‌زمان با هم رقابت می‌کنند
-  و pipeline_health را با خطاهای تکراری/بی‌ربط شلوغ می‌کنند):
-  ```sql
-  select cron.unschedule('collect-tse');
-  select cron.unschedule('collect-market-index');
-  ```
+- ~~pg_cron روی Supabase برای `collect-tse` و `collect-market-index` باید unschedule شود~~
+  **انجام شد (۲۰۲۶-۰۸-۰۹، `supabase/migrations/20260809230000_unschedule_collect_tse_market_index_pg_cron.sql`).**
+  کشف شد که این قدم واقعاً انجام نشده بود — کوئری زندهٔ `pipeline_health` نشون داد در تمام
+  ساعات بازار همون روز، هر دو source ۱۰۰٪ با «The signal has been aborted» (همون مسیر قدیمی
+  Supabase) شکست می‌خوردن، بدون هیچ ردیف موفق. مهم‌تر: **در همون بازه حتی یک ردیف
+  `ok...via VPS relay` هم برای `collect-tse`/`collect-market-index` دیده نشد** (برخلاف
+  `collect-global-domestic` که ۲۹ از ۲۹ بار موفق بود) — یعنی احتمال زیاد crontab خودِ VPS برای
+  این دو تابع هنوز واقعاً راه‌اندازی نشده (فقط global-domestic). **این هنوز باید از طریق SSH
+  مستقیم به VPS چک/تکمیل شود** — از بیرون ایران قابل انجام نیست، پس Claude Code نمی‌تونه
+  خودش این قسمت رو تأیید کنه.
 - این VPS یک نقطهٔ شکست تک (single point of failure) جدید است — اگر خودش خاموش/غیرقابل‌دسترس
   شود، هیچ هشداری غیر از «آخرین اجرای pipeline_health قدیمی شده» وجود ندارد. مانیتورینگ جدا
   (مثلاً uptime ping به خودِ VPS) در scope این تغییر نبود.
