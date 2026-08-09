@@ -319,7 +319,12 @@ async function main() {
   const openPositions = new Map<string, OpenPosition>();
   const trades: Trade[] = [];
   const equityPoints: { date: string; equity: number }[] = [];
+  const positionCountByDate = new Map<string, number>(); // برای تحلیل «زمان حضور در بازار» (تشخیص میانی)
   let equity = 1_000_000; // واحد دلخواه، فقط نسبی مهم است
+  // فرض محدودیت‌دار مهم: equity فقط با closePosition (خط پایین) تغییر می‌کند — یعنی سهم نقدِ
+  // استفاده‌نشده (طبق تشخیص «سرمایهٔ درگیر»، به‌طور میانگین ~۷۳٪ از کل) بازدهی صفر فرض شده،
+  // نه نرخ سود بانکی/سپرده. هیچ داده‌ای از نرخ سپردهٔ بانکی در این پروژه ردیابی نمی‌شود، پس این
+  // فرض عمداً ساده‌سازی‌شده مانده، نه اینکه بازدهی واقعی نقد صفر باشد.
 
   function closePosition(symbol: string, exitIndex: number, reason: Trade["exitReason"]) {
     const pos = openPositions.get(symbol);
@@ -452,6 +457,7 @@ async function main() {
     }
 
     equityPoints.push({ date, equity });
+    positionCountByDate.set(date, openPositions.size);
   }
 
   // بستن پوزیشن‌های باقی‌مانده در پایان بک‌تست
@@ -817,6 +823,78 @@ async function main() {
     test: bootstrapCI(testTrades, testMetrics.benchmarks.tedpix?.returnPct ?? null),
   };
 
+  // ===== تشخیص میانی — زمان حضور در بازار در برابر نقد، و آیا این با بزرگ‌ترین روزهای رشد =====
+  // ===== تدپیکس هم‌پوشانی دارد (درخواست کاربر، قبل از تصمیم دربارهٔ گستردن دامنهٔ نماد) =====
+  interface TimeInMarketReport {
+    from: string;
+    to: string;
+    totalDays: number;
+    inMarketDays: number;
+    pctInMarket: number;
+    // «در بازار» بالا باینریه (حداقل ۱ پوزیشن از ۱۰ ظرفیت) — ممکن است فریب‌دهنده باشد چون یک
+    // پوزیشن از ۱۰ هم «در بازار» حساب می‌شود ولی فقط ۱۰٪ سرمایه را درگیر کرده. این عدد دقیق‌تره:
+    // میانگین سهم واقعی سرمایهٔ درگیرشده (تعداد پوزیشن باز × ۱۰٪، سقف ۱۰۰٪) در طول بازه.
+    avgCapitalUtilizationPct: number;
+    tedpixTop10UpDays: { date: string; tedpixChangePct: number; strategyInMarket: boolean }[];
+    tedpixTop10UpDaysInMarketPct: number | null;
+    tedpixTopDecileUpDaysInMarketPct: number | null; // بالای بازهٔ ۱۰٪ روزهای پررشدترین (برای مقیاس‌پذیری با طول بازه)
+  }
+
+  function computeTimeInMarket(periodFrom: string, periodTo: string): TimeInMarketReport {
+    const periodDays = calendar.filter((d) => d >= periodFrom && d <= periodTo);
+    const inMarketDays = periodDays.filter((d) => (positionCountByDate.get(d) ?? 0) > 0);
+    const pctInMarket = periodDays.length > 0 ? (inMarketDays.length / periodDays.length) * 100 : 0;
+    const avgCapitalUtilizationPct =
+      periodDays.length > 0
+        ? periodDays.reduce((s, d) => s + Math.min(100, (positionCountByDate.get(d) ?? 0) * ALLOCATION_PCT * 100), 0) /
+          periodDays.length
+        : 0;
+
+    const tedpixRows = (benchmarksByAsset.get("tedpix") ?? []).filter(
+      (r) => r.date >= periodFrom && r.date <= periodTo && r.close != null,
+    );
+    const tedpixDailyChanges: { date: string; changePct: number }[] = [];
+    for (let i = 1; i < tedpixRows.length; i++) {
+      const prevClose = tedpixRows[i - 1].close as number;
+      const close = tedpixRows[i].close as number;
+      if (prevClose > 0) tedpixDailyChanges.push({ date: tedpixRows[i].date, changePct: (close / prevClose - 1) * 100 });
+    }
+    const sortedDesc = [...tedpixDailyChanges].sort((a, b) => b.changePct - a.changePct);
+
+    const top10 = sortedDesc.slice(0, 10).map((d) => ({
+      date: d.date,
+      tedpixChangePct: d.changePct,
+      // اگر روزی داده‌ای در calendar بورس نداشت (نماد trading day نبود)، نامشخص=false گزارش می‌شود
+      strategyInMarket: (positionCountByDate.get(d.date) ?? 0) > 0,
+    }));
+    const top10InMarketPct = top10.length > 0 ? (top10.filter((d) => d.strategyInMarket).length / top10.length) * 100 : null;
+
+    const decileCount = Math.max(1, Math.round(sortedDesc.length * 0.1));
+    const topDecile = sortedDesc.slice(0, decileCount);
+    const topDecileInMarketPct =
+      topDecile.length > 0
+        ? (topDecile.filter((d) => (positionCountByDate.get(d.date) ?? 0) > 0).length / topDecile.length) * 100
+        : null;
+
+    return {
+      from: periodFrom,
+      to: periodTo,
+      totalDays: periodDays.length,
+      inMarketDays: inMarketDays.length,
+      pctInMarket,
+      avgCapitalUtilizationPct,
+      tedpixTop10UpDays: top10,
+      tedpixTop10UpDaysInMarketPct: top10InMarketPct,
+      tedpixTopDecileUpDaysInMarketPct: topDecileInMarketPct,
+    };
+  }
+
+  const timeInMarket = {
+    overall: computeTimeInMarket(from, overallTo),
+    train: computeTimeInMarket(from, trainTo),
+    test: computeTimeInMarket(testFrom, overallTo),
+  };
+
   const summary = {
     from,
     to: calendar[calendar.length - 1] ?? from,
@@ -840,6 +918,7 @@ async function main() {
     benchmarksUsd,
     trainTestSplit,
     bootstrap,
+    timeInMarket,
     perRule: Object.fromEntries(
       [...perRule.entries()].map(([name, v]) => [
         name,
@@ -901,6 +980,28 @@ async function main() {
     "بازده مازاد بر تدپیکس٪ (test)": { بازه: fmtCi(bootstrap.test?.excessReturnVsTedpixPctApprox) },
   });
 
+  console.log(`\n=== زمان حضور در بازار در برابر نقد ===`);
+  console.table({
+    "کل بازه": {
+      "٪ روز در بازار (≥۱ پوزیشن)": timeInMarket.overall.pctInMarket.toFixed(1),
+      "٪ میانگین سرمایهٔ درگیر": timeInMarket.overall.avgCapitalUtilizationPct.toFixed(1),
+      "٪ در بازار، ۱۰ روز پررشدترین تدپیکس": timeInMarket.overall.tedpixTop10UpDaysInMarketPct?.toFixed(1) ?? "—",
+      "٪ در بازار، دهک اول روزهای پررشد": timeInMarket.overall.tedpixTopDecileUpDaysInMarketPct?.toFixed(1) ?? "—",
+    },
+    Train: {
+      "٪ روز در بازار (≥۱ پوزیشن)": timeInMarket.train.pctInMarket.toFixed(1),
+      "٪ میانگین سرمایهٔ درگیر": timeInMarket.train.avgCapitalUtilizationPct.toFixed(1),
+      "٪ در بازار، ۱۰ روز پررشدترین تدپیکس": timeInMarket.train.tedpixTop10UpDaysInMarketPct?.toFixed(1) ?? "—",
+      "٪ در بازار، دهک اول روزهای پررشد": timeInMarket.train.tedpixTopDecileUpDaysInMarketPct?.toFixed(1) ?? "—",
+    },
+    Test: {
+      "٪ روز در بازار (≥۱ پوزیشن)": timeInMarket.test.pctInMarket.toFixed(1),
+      "٪ میانگین سرمایهٔ درگیر": timeInMarket.test.avgCapitalUtilizationPct.toFixed(1),
+      "٪ در بازار، ۱۰ روز پررشدترین تدپیکس": timeInMarket.test.tedpixTop10UpDaysInMarketPct?.toFixed(1) ?? "—",
+      "٪ در بازار، دهک اول روزهای پررشد": timeInMarket.test.tedpixTopDecileUpDaysInMarketPct?.toFixed(1) ?? "—",
+    },
+  });
+
   console.log(`\nگزارش: ${jsonPath}\n         ${htmlPath}`);
 }
 
@@ -934,7 +1035,13 @@ function renderHtmlReport(
 
   const summaryRows = Object.entries(summary)
     .filter(
-      ([k]) => k !== "perRule" && k !== "benchmarks" && k !== "benchmarksUsd" && k !== "trainTestSplit" && k !== "bootstrap",
+      ([k]) =>
+        k !== "perRule" &&
+        k !== "benchmarks" &&
+        k !== "benchmarksUsd" &&
+        k !== "trainTestSplit" &&
+        k !== "bootstrap" &&
+        k !== "timeInMarket",
     )
     .map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === "number" ? v.toFixed(2) : JSON.stringify(v)}</td></tr>`)
     .join("");
@@ -1011,6 +1118,29 @@ function renderHtmlReport(
     })
     .join("");
 
+  type TimeInMarketEntry = {
+    from: string;
+    to: string;
+    totalDays: number;
+    inMarketDays: number;
+    pctInMarket: number;
+    avgCapitalUtilizationPct: number;
+    tedpixTop10UpDays: { date: string; tedpixChangePct: number; strategyInMarket: boolean }[];
+    tedpixTop10UpDaysInMarketPct: number | null;
+    tedpixTopDecileUpDaysInMarketPct: number | null;
+  };
+  const timeInMarket = summary.timeInMarket as { overall: TimeInMarketEntry; train: TimeInMarketEntry; test: TimeInMarketEntry };
+  const timInMarketRows = (["overall", "train", "test"] as const)
+    .map((key) => {
+      const label = key === "overall" ? "کل بازه" : key === "train" ? "Train" : "Test";
+      const t = timeInMarket[key];
+      return `<tr><td>${label}</td><td>${t.totalDays}</td><td>${t.pctInMarket.toFixed(1)}%</td><td>${t.avgCapitalUtilizationPct.toFixed(1)}%</td><td>${t.tedpixTop10UpDaysInMarketPct?.toFixed(1) ?? "—"}%</td><td>${t.tedpixTopDecileUpDaysInMarketPct?.toFixed(1) ?? "—"}%</td></tr>`;
+    })
+    .join("");
+  const timTop10Rows = timeInMarket.overall.tedpixTop10UpDays
+    .map((d) => `<tr><td>${d.date}</td><td>${d.tedpixChangePct.toFixed(2)}%</td><td>${d.strategyInMarket ? "بله" : "خیر (نقد)"}</td></tr>`)
+    .join("");
+
   const perRule = summary.perRule as Record<string, { triggered: number; winRate: number; totalPnl: number }>;
   const ruleRows = Object.entries(perRule)
     .map(
@@ -1070,6 +1200,11 @@ svg{background:#1a1d24;border-radius:8px;}
 بازه است (خود تدپیکس resample نمی‌شود، چون یک دارایی منفعل است نه دنباله‌ای از معاملات مستقل).
 </p>
 <table><tr><th>بازه</th><th>تعداد معامله</th><th>profit factor (۵٪ … میانه … ۹۵٪)</th><th>بازدهٔ تقریبی٪</th><th>بازدهٔ مازاد بر تدپیکس٪</th></tr>${bootstrapRows}</table>
+
+<h2>تشخیص میانی — زمان حضور در بازار در برابر نقد</h2>
+<p style="color:#94a3b8">آیا استراتژی در بزرگ‌ترین روزهای رشد تدپیکس در بازار بوده یا نقد؟</p>
+<table><tr><th>بازه</th><th>روز معاملاتی</th><th>٪ روز در بازار (≥۱ پوزیشن)</th><th>٪ میانگین سرمایهٔ درگیر</th><th>٪ در بازار، ۱۰ روز پررشدترین تدپیکس</th><th>٪ در بازار، دهک اول روزهای پررشد</th></tr>${timInMarketRows}</table>
+<table><tr><th>تاریخ</th><th>رشد تدپیکس٪</th><th>استراتژی در بازار بود؟</th></tr>${timTop10Rows}</table>
 
 <h2>عملکرد به تفکیک قانون</h2>
 <table><tr><th>قانون</th><th>تعداد</th><th>win rate</th><th>مجموع سود/زیان</th></tr>${ruleRows}</table>
