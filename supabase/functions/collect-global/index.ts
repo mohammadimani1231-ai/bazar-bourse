@@ -1,12 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { fetchYahooQuote } from "../../../lib/data-sources/yahoo.ts";
-import { fetchBrsApiGoldCurrency } from "../../../lib/data-sources/brsapi.ts";
-import {
-  yahooQuoteToGlobalQuoteRow,
-  brsApiGoldCurrencyToGlobalQuoteRows,
-  type GlobalQuoteRow,
-} from "../../../lib/transforms/globalQuote.ts";
+import { yahooQuoteToGlobalQuoteRow, type GlobalQuoteRow } from "../../../lib/transforms/globalQuote.ts";
 
 const YAHOO_ASSETS: [symbol: string, asset: string][] = [
   ["BZ=F", "brent"],
@@ -16,10 +11,14 @@ const YAHOO_ASSETS: [symbol: string, asset: string][] = [
   ["^GSPC", "sp500"],
 ];
 
+// ۲۰۲۶-۰۸-۰۹: بخش داخلی (BrsApi سکه/طلا/دلار) از اینجا حذف شد — طبق تأیید خودِ پشتیبانی BrsApi
+// (رجوع به CLAUDE.md)، سرورهایشان در ایران است و اتصال از IP خارج از ایران (Supabase) روی
+// «دستکاری اینترنت بین‌الملل» می‌خورد، نه چیزی که با retry حل شود. آن بخش حالا مستقل روی یک
+// VPS ایرانی اجرا می‌شود (scripts/vps-relay/relay.mjs، source='collect-global-domestic' در
+// pipeline_health). اینجا فقط Yahoo (بین‌المللی) می‌ماند چون از IP Supabase مشکلی نداشت.
 Deno.serve(async () => {
   const start = performance.now();
   const client = createServiceClient();
-  const brsApiKey = Deno.env.get("BRSAPI_KEY") ?? "";
   const capturedAt = new Date().toISOString();
   const rows: GlobalQuoteRow[] = [];
   const errors: string[] = [];
@@ -40,22 +39,12 @@ Deno.serve(async () => {
     }
   });
 
-  try {
-    const goldCurrency = await fetchBrsApiGoldCurrency(brsApiKey);
-    rows.push(...brsApiGoldCurrencyToGlobalQuoteRows(goldCurrency, capturedAt));
-  } catch (err) {
-    errors.push(`brsapi-gold-currency: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
   if (rows.length > 0) {
     const { error: insertError } = await client.from("global_quotes").insert(rows);
     if (insertError) errors.push(`insert: ${insertError.message}`);
   }
 
   const latencyMs = Math.round(performance.now() - start);
-  // ۲۰۲۶-۰۸-۰۸: قبلاً اگر فقط Yahoo موفق می‌شد ولی BrsApi (طلا/ارز داخلی) هفته‌ها fail می‌کرد،
-  // چون rows.length>0 بود status همچنان "ok" ثبت می‌شد — یعنی شکست جزئی هیچ‌وقت هشدار نمی‌داد.
-  // حالا هر خطایی (حتی جزئی) status="error" می‌شود؛ detail هنوز می‌گوید کدام بخش موفق بود.
   const status = errors.length === 0 ? "ok" : "error";
   await logHealth(client, "collect-global", status, errors.join("; ") || `${rows.length} assets`, latencyMs);
 
