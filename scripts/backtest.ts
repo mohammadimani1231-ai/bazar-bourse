@@ -721,6 +721,102 @@ async function main() {
     }
   }
 
+  // ===== بخش ۳ — بازهٔ اطمینان bootstrap =====
+  // PRNG بذر ثابت (نه Math.random) عمداً: می‌خواهیم این بازهٔ اطمینان بین اجراهای مختلف کاملاً
+  // تکرارپذیر باشد — دقیقاً همان دلیلی که در بررسی «چرا دو عدد فرق داشت» (این session) اهمیتش
+  // روشن شد. mulberry32 یک PRNG سبک و رایج برای همین منظور است.
+  function mulberry32(seed: number) {
+    let a = seed;
+    return function () {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  const BOOTSTRAP_SEED = 42;
+  const BOOTSTRAP_ITERATIONS = 5000;
+  const CI_TAIL = 0.05; // ۹۰٪ CI => صدک ۵ و ۹۵
+
+  function percentile(sortedAsc: number[], p: number): number {
+    if (sortedAsc.length === 0) return NaN;
+    const idx = Math.min(sortedAsc.length - 1, Math.max(0, Math.round(p * (sortedAsc.length - 1))));
+    return sortedAsc[idx];
+  }
+
+  interface BootstrapCI {
+    n: number;
+    iterations: number;
+    profitFactor: { p05: number; median: number; p95: number };
+    // بازدهٔ ترکیبی (compounded) تقریبی هر resample: چون bootstrap ترتیب زمانی معاملات را به‌هم
+    // می‌ریزد، شبیه‌سازی دقیق منحنی equity (با تا ۱۰ پوزیشن هم‌زمان) ممکن نیست — این یک تقریب
+    // مرسوم است: هر معامله را جدا با سهم ثابت ALLOCATION_PCT از سرمایه فرض می‌کنیم و ترکیب می‌کنیم.
+    // یعنی عدد میانه‌اش لزوماً دقیقاً با periodReturnPct واقعی یکی نیست — برای پهنای بازه مهم است.
+    totalReturnPctApprox: { p05: number; median: number; p95: number };
+    excessReturnVsTedpixPctApprox: { p05: number; median: number; p95: number } | null;
+  }
+
+  function bootstrapCI(tradeList: Trade[], tedpixReturnPct: number | null): BootstrapCI | null {
+    if (tradeList.length === 0) return null;
+    const rng = mulberry32(BOOTSTRAP_SEED);
+    const pfSamples: number[] = [];
+    const returnSamples: number[] = [];
+    const excessSamples: number[] = [];
+    for (let iter = 0; iter < BOOTSTRAP_ITERATIONS; iter++) {
+      let grossProfit = 0;
+      let grossLoss = 0;
+      let compounded = 1;
+      for (let i = 0; i < tradeList.length; i++) {
+        const t = tradeList[Math.floor(rng() * tradeList.length)];
+        if (t.pnl > 0) grossProfit += t.pnl;
+        else grossLoss += Math.abs(t.pnl);
+        compounded *= 1 + (t.returnPct / 100) * ALLOCATION_PCT;
+      }
+      const pf = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
+      const totalReturnPct = (compounded - 1) * 100;
+      pfSamples.push(pf);
+      returnSamples.push(totalReturnPct);
+      if (tedpixReturnPct != null) excessSamples.push(totalReturnPct - tedpixReturnPct);
+    }
+    pfSamples.sort((a, b) => a - b);
+    returnSamples.sort((a, b) => a - b);
+    excessSamples.sort((a, b) => a - b);
+    return {
+      n: tradeList.length,
+      iterations: BOOTSTRAP_ITERATIONS,
+      profitFactor: {
+        p05: percentile(pfSamples, CI_TAIL),
+        median: percentile(pfSamples, 0.5),
+        p95: percentile(pfSamples, 1 - CI_TAIL),
+      },
+      totalReturnPctApprox: {
+        p05: percentile(returnSamples, CI_TAIL),
+        median: percentile(returnSamples, 0.5),
+        p95: percentile(returnSamples, 1 - CI_TAIL),
+      },
+      excessReturnVsTedpixPctApprox:
+        tedpixReturnPct != null
+          ? {
+              p05: percentile(excessSamples, CI_TAIL),
+              median: percentile(excessSamples, 0.5),
+              p95: percentile(excessSamples, 1 - CI_TAIL),
+            }
+          : null,
+    };
+  }
+
+  const trainTrades = trades.filter((t) => t.entryDate >= from && t.entryDate <= trainTo);
+  const testTrades = trades.filter((t) => t.entryDate >= testFrom && t.entryDate <= overallTo);
+  const bootstrap = {
+    seed: BOOTSTRAP_SEED,
+    iterations: BOOTSTRAP_ITERATIONS,
+    ciLevel: 1 - 2 * CI_TAIL,
+    overall: bootstrapCI(trades, benchmarks.tedpix?.returnPct ?? null),
+    train: bootstrapCI(trainTrades, trainMetrics.benchmarks.tedpix?.returnPct ?? null),
+    test: bootstrapCI(testTrades, testMetrics.benchmarks.tedpix?.returnPct ?? null),
+  };
+
   const summary = {
     from,
     to: calendar[calendar.length - 1] ?? from,
@@ -743,6 +839,7 @@ async function main() {
     benchmarks,
     benchmarksUsd,
     trainTestSplit,
+    bootstrap,
     perRule: Object.fromEntries(
       [...perRule.entries()].map(([name, v]) => [
         name,
@@ -787,6 +884,23 @@ async function main() {
   console.log(`\n=== trigger هر قانون در بازهٔ train (${trainMetrics.from} تا ${trainMetrics.to}) ===`);
   console.table(trainTestSplit.trainPerRule);
 
+  console.log(
+    `\n=== بازهٔ اطمینان ۹۰٪ (bootstrap، seed=${BOOTSTRAP_SEED}، ${BOOTSTRAP_ITERATIONS} تکرار) ===`,
+  );
+  const fmtCi = (ci: { p05: number; median: number; p95: number } | undefined | null) =>
+    ci ? `${ci.p05.toFixed(3)} … ${ci.median.toFixed(3)} … ${ci.p95.toFixed(3)}` : "بدون داده";
+  console.table({
+    "profit factor (کل)": { بازه: fmtCi(bootstrap.overall?.profitFactor) },
+    "profit factor (train)": { بازه: fmtCi(bootstrap.train?.profitFactor) },
+    "profit factor (test)": { بازه: fmtCi(bootstrap.test?.profitFactor) },
+    "بازده تقریبی٪ (کل)": { بازه: fmtCi(bootstrap.overall?.totalReturnPctApprox) },
+    "بازده تقریبی٪ (train)": { بازه: fmtCi(bootstrap.train?.totalReturnPctApprox) },
+    "بازده تقریبی٪ (test)": { بازه: fmtCi(bootstrap.test?.totalReturnPctApprox) },
+    "بازده مازاد بر تدپیکس٪ (کل)": { بازه: fmtCi(bootstrap.overall?.excessReturnVsTedpixPctApprox) },
+    "بازده مازاد بر تدپیکس٪ (train)": { بازه: fmtCi(bootstrap.train?.excessReturnVsTedpixPctApprox) },
+    "بازده مازاد بر تدپیکس٪ (test)": { بازه: fmtCi(bootstrap.test?.excessReturnVsTedpixPctApprox) },
+  });
+
   console.log(`\nگزارش: ${jsonPath}\n         ${htmlPath}`);
 }
 
@@ -819,7 +933,9 @@ function renderHtmlReport(
     .join(" ");
 
   const summaryRows = Object.entries(summary)
-    .filter(([k]) => k !== "perRule" && k !== "benchmarks" && k !== "benchmarksUsd" && k !== "trainTestSplit")
+    .filter(
+      ([k]) => k !== "perRule" && k !== "benchmarks" && k !== "benchmarksUsd" && k !== "trainTestSplit" && k !== "bootstrap",
+    )
     .map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === "number" ? v.toFixed(2) : JSON.stringify(v)}</td></tr>`)
     .join("");
 
@@ -877,6 +993,24 @@ function renderHtmlReport(
     .join("");
   const strategyReturnPctUsdReport = summary.strategyReturnPctUsd as number | null;
 
+  type CiTriplet = { p05: number; median: number; p95: number };
+  type BootstrapEntry = {
+    n: number;
+    iterations: number;
+    profitFactor: CiTriplet;
+    totalReturnPctApprox: CiTriplet;
+    excessReturnVsTedpixPctApprox: CiTriplet | null;
+  } | null;
+  const bootstrap = summary.bootstrap as { seed: number; iterations: number; ciLevel: number; overall: BootstrapEntry; train: BootstrapEntry; test: BootstrapEntry };
+  const fmtCiHtml = (ci: CiTriplet | null | undefined) => (ci ? `${ci.p05.toFixed(3)} … <b>${ci.median.toFixed(3)}</b> … ${ci.p95.toFixed(3)}` : "بدون داده");
+  const bootstrapRows = (["overall", "train", "test"] as const)
+    .map((key) => {
+      const label = key === "overall" ? "کل بازه" : key === "train" ? "Train" : "Test";
+      const b = bootstrap[key];
+      return `<tr><td>${label}</td><td>${b?.n ?? 0}</td><td>${fmtCiHtml(b?.profitFactor)}</td><td>${fmtCiHtml(b?.totalReturnPctApprox)}</td><td>${fmtCiHtml(b?.excessReturnVsTedpixPctApprox)}</td></tr>`;
+    })
+    .join("");
+
   const perRule = summary.perRule as Record<string, { triggered: number; winRate: number; totalPnl: number }>;
   const ruleRows = Object.entries(perRule)
     .map(
@@ -926,6 +1060,16 @@ svg{background:#1a1d24;border-radius:8px;}
 <h2>بازده در برابر بنچمارک‌ها (کل بازه)</h2>
 <table><tr><th>دارایی (ریالی)</th><th>بازده٪</th></tr>${benchmarkRows}</table>
 <table><tr><th>دارایی (به دلار)</th><th>بازده٪</th></tr><tr><td>استراتژی</td><td>${strategyReturnPctUsdReport != null ? strategyReturnPctUsdReport.toFixed(2) + "%" : "بدون داده"}</td></tr>${benchmarkUsdRows}</table>
+
+<h2>بند ۳ — بازهٔ اطمینان ${((bootstrap.ciLevel ?? 0.9) * 100).toFixed(0)}٪ (bootstrap، seed=${bootstrap.seed}، ${bootstrap.iterations} تکرار)</h2>
+<p style="color:#94a3b8">
+«بازدهٔ تقریبی» چون bootstrap ترتیب زمانی معاملات را به‌هم می‌ریزد، منحنی equity واقعی (با تا ۱۰
+پوزیشن هم‌زمان) دوباره شبیه‌سازی نمی‌شود — هر معامله با سهم ثابت ${(ALLOCATION_PCT * 100).toFixed(0)}٪
+از سرمایه جدا ترکیب شده؛ برای سنجش پهنای بازه کافی است، برای عدد دقیق نقطه‌ای به جدول‌های بالا
+مراجعه کنید. «بازده مازاد بر تدپیکس» بازدهٔ ریالی هر resample منهای بازدهٔ ریالی واقعی تدپیکس همان
+بازه است (خود تدپیکس resample نمی‌شود، چون یک دارایی منفعل است نه دنباله‌ای از معاملات مستقل).
+</p>
+<table><tr><th>بازه</th><th>تعداد معامله</th><th>profit factor (۵٪ … میانه … ۹۵٪)</th><th>بازدهٔ تقریبی٪</th><th>بازدهٔ مازاد بر تدپیکس٪</th></tr>${bootstrapRows}</table>
 
 <h2>عملکرد به تفکیک قانون</h2>
 <table><tr><th>قانون</th><th>تعداد</th><th>win rate</th><th>مجموع سود/زیان</th></tr>${ruleRows}</table>
