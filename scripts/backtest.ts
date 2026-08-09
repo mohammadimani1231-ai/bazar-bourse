@@ -267,6 +267,36 @@ async function main() {
     benchmarksByAsset.set(row.asset, list);
   }
 
+  // نرخ دلار آزاد به تفکیک تاریخ (برای «بازده به دلار» — بخش ۲ پرامپت). چون تاریخ‌های
+  // usd_irr لزوماً دقیقاً با روزهای معاملاتی بورس یکی نیست، آخرین نرخ ثبت‌شده تا همان تاریخ
+  // (نه دقیقاً همان روز) استفاده می‌شود — همان رفتار طبیعی «آخرین نرخ شناخته‌شده».
+  const usdRows = (benchmarksByAsset.get("usd_irr") ?? []).filter((r) => r.close != null);
+  function usdRateAt(date: string): number | null {
+    if (usdRows.length === 0) return null;
+    let lo = 0;
+    let hi = usdRows.length - 1;
+    if (date < usdRows[0].date) return null;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (usdRows[mid].date <= date) lo = mid;
+      else hi = mid - 1;
+    }
+    return usdRows[lo].close as number;
+  }
+  // بازدهٔ یک سری قیمتی (تاریخ→مقدار به ریال) بعد از تعدیل با نرخ دلار همان روز — یعنی بازده
+  // واقعی «به دلار»، نه بازده اسمی ریالی. اگر پوشش نرخ دلار برای ابتدا/انتهای بازه موجود نباشد
+  // null برمی‌گردد (به‌جای عدد گمراه‌کننده).
+  function usdAdjustedReturnPct(points: { date: string; value: number }[]): number | null {
+    if (points.length < 2) return null;
+    const startRate = usdRateAt(points[0].date);
+    const endRate = usdRateAt(points[points.length - 1].date);
+    if (startRate == null || endRate == null || startRate <= 0) return null;
+    const startUsd = points[0].value / startRate;
+    const endUsd = points[points.length - 1].value / endRate;
+    if (startUsd === 0) return null;
+    return (endUsd / startUsd - 1) * 100;
+  }
+
   // تقویم معاملاتی مشترک: اجتماع تاریخ‌های همهٔ نمادها از from به بعد
   const calendarSet = new Set<string>();
   for (const series of seriesBySymbol.values()) {
@@ -510,12 +540,29 @@ async function main() {
     return { startDate: rows[0].date, endDate: rows[rows.length - 1].date, returnPct: (endClose / startClose - 1) * 100 };
   }
 
+  // بخش ۲ پرامپت — همان بازدهٔ بنچمارک بالا، این‌بار بعد از تعدیل با نرخ دلار همان روز. برای
+  // usd_irr خودش این همیشه ۰٪ است (دلار نسبت به خودش تغییر نمی‌کند) — این عمداً یک sanity check
+  // بصریه، نه باگ.
+  function benchmarkReturnUsd(asset: string, periodFrom: string, periodTo: string): number | null {
+    const rows = (benchmarksByAsset.get(asset) ?? []).filter(
+      (r) => r.date >= periodFrom && r.date <= periodTo && r.close != null,
+    );
+    if (rows.length < 2) return null;
+    return usdAdjustedReturnPct(rows.map((r) => ({ date: r.date, value: r.close as number })));
+  }
+
   const overallTo = calendar[calendar.length - 1] ?? from;
   const strategyReturnPct = equityPoints.length > 0 ? (equity / equityPoints[0].equity - 1) * 100 : 0;
+  const strategyReturnPctUsd = usdAdjustedReturnPct(equityPoints.map((p) => ({ date: p.date, value: p.equity })));
   const benchmarks = {
     tedpix: benchmarkReturn("tedpix", from, overallTo),
     usd_irr: benchmarkReturn("usd_irr", from, overallTo),
     gold_18k: benchmarkReturn("gold_18k", from, overallTo),
+  };
+  const benchmarksUsd = {
+    tedpix: benchmarkReturnUsd("tedpix", from, overallTo),
+    usd_irr: benchmarkReturnUsd("usd_irr", from, overallTo),
+    gold_18k: benchmarkReturnUsd("gold_18k", from, overallTo),
   };
 
   // ===== بخش ۱ — زیرساخت train/test split =====
@@ -534,10 +581,16 @@ async function main() {
     sortino: number;
     maxDrawdownPct: number;
     periodReturnPct: number;
+    periodReturnPctUsd: number | null;
     benchmarks: {
       tedpix: ReturnType<typeof benchmarkReturn>;
       usd_irr: ReturnType<typeof benchmarkReturn>;
       gold_18k: ReturnType<typeof benchmarkReturn>;
+    };
+    benchmarksUsd: {
+      tedpix: number | null;
+      usd_irr: number | null;
+      gold_18k: number | null;
     };
   }
 
@@ -581,6 +634,7 @@ async function main() {
       periodEquityPoints.length > 1 && periodEquityPoints[0].equity > 0
         ? (periodEquityPoints[periodEquityPoints.length - 1].equity / periodEquityPoints[0].equity - 1) * 100
         : 0;
+    const periodReturnPctUsd = usdAdjustedReturnPct(periodEquityPoints.map((p) => ({ date: p.date, value: p.equity })));
 
     return {
       from: periodFrom,
@@ -594,10 +648,16 @@ async function main() {
       sortino: pSortino,
       maxDrawdownPct: pMaxDrawdownPct,
       periodReturnPct,
+      periodReturnPctUsd,
       benchmarks: {
         tedpix: benchmarkReturn("tedpix", periodFrom, periodTo),
         usd_irr: benchmarkReturn("usd_irr", periodFrom, periodTo),
         gold_18k: benchmarkReturn("gold_18k", periodFrom, periodTo),
+      },
+      benchmarksUsd: {
+        tedpix: benchmarkReturnUsd("tedpix", periodFrom, periodTo),
+        usd_irr: benchmarkReturnUsd("usd_irr", periodFrom, periodTo),
+        gold_18k: benchmarkReturnUsd("gold_18k", periodFrom, periodTo),
       },
     };
   }
@@ -679,7 +739,9 @@ async function main() {
     maxDdDurationDays: maxDdDuration,
     recoveryDate,
     strategyReturnPct,
+    strategyReturnPctUsd,
     benchmarks,
+    benchmarksUsd,
     trainTestSplit,
     perRule: Object.fromEntries(
       [...perRule.entries()].map(([name, v]) => [
@@ -706,8 +768,20 @@ async function main() {
     "تعداد معامله": { train: trainMetrics.totalTrades, test: testMetrics.totalTrades },
     "win rate٪": { train: trainMetrics.winRate.toFixed(1), test: testMetrics.winRate.toFixed(1) },
     "profit factor": { train: trainMetrics.profitFactor.toFixed(3), test: testMetrics.profitFactor.toFixed(3) },
-    "بازدهٔ بازه٪": { train: trainMetrics.periodReturnPct.toFixed(2), test: testMetrics.periodReturnPct.toFixed(2) },
+    "بازدهٔ بازه٪ (ریالی)": { train: trainMetrics.periodReturnPct.toFixed(2), test: testMetrics.periodReturnPct.toFixed(2) },
+    "بازدهٔ بازه٪ (به دلار)": {
+      train: trainMetrics.periodReturnPctUsd != null ? trainMetrics.periodReturnPctUsd.toFixed(2) : "بدون داده",
+      test: testMetrics.periodReturnPctUsd != null ? testMetrics.periodReturnPctUsd.toFixed(2) : "بدون داده",
+    },
     "حداکثر افت سرمایه٪": { train: trainMetrics.maxDrawdownPct.toFixed(2), test: testMetrics.maxDrawdownPct.toFixed(2) },
+  });
+
+  console.log(`\n=== بازده به دلار در برابر بنچمارک‌ها (کل بازه) ===`);
+  console.table({
+    استراتژی: strategyReturnPctUsd != null ? strategyReturnPctUsd.toFixed(2) + "%" : "بدون داده",
+    تدپیکس: benchmarksUsd.tedpix != null ? benchmarksUsd.tedpix.toFixed(2) + "%" : "بدون داده",
+    "دلار (مبنا)": benchmarksUsd.usd_irr != null ? benchmarksUsd.usd_irr.toFixed(2) + "%" : "بدون داده",
+    "طلای ۱۸عیار": benchmarksUsd.gold_18k != null ? benchmarksUsd.gold_18k.toFixed(2) + "%" : "بدون داده",
   });
 
   console.log(`\n=== trigger هر قانون در بازهٔ train (${trainMetrics.from} تا ${trainMetrics.to}) ===`);
@@ -745,7 +819,7 @@ function renderHtmlReport(
     .join(" ");
 
   const summaryRows = Object.entries(summary)
-    .filter(([k]) => k !== "perRule" && k !== "benchmarks" && k !== "trainTestSplit")
+    .filter(([k]) => k !== "perRule" && k !== "benchmarks" && k !== "benchmarksUsd" && k !== "trainTestSplit")
     .map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === "number" ? v.toFixed(2) : JSON.stringify(v)}</td></tr>`)
     .join("");
 
@@ -762,12 +836,13 @@ function renderHtmlReport(
     ["totalTrades", "تعداد معامله"],
     ["winRate", "win rate٪"],
     ["profitFactor", "profit factor"],
-    ["periodReturnPct", "بازدهٔ بازه٪"],
+    ["periodReturnPct", "بازدهٔ بازه٪ (ریالی)"],
+    ["periodReturnPctUsd", "بازدهٔ بازه٪ (به دلار)"],
     ["maxDrawdownPct", "حداکثر افت سرمایه٪"],
     ["sharpe", "شارپ"],
     ["sortino", "سورتینو"],
   ];
-  const fmt = (v: unknown) => (typeof v === "number" ? v.toFixed(3) : String(v));
+  const fmt = (v: unknown) => (typeof v === "number" ? v.toFixed(3) : v == null ? "بدون داده" : String(v));
   const splitRows = splitFields
     .map(
       ([key, label]) =>
@@ -782,11 +857,25 @@ function renderHtmlReport(
         `<tr><td>${asset}</td><td>${trainBench[asset] ? trainBench[asset]!.returnPct.toFixed(2) + "%" : "بدون داده"}</td><td>${testBench[asset] ? testBench[asset]!.returnPct.toFixed(2) + "%" : "بدون داده"}</td></tr>`,
     )
     .join("");
+  const trainBenchUsd = split.train.benchmarksUsd as Record<string, number | null>;
+  const testBenchUsd = split.test.benchmarksUsd as Record<string, number | null>;
+  const splitBenchUsdRows = Object.keys(trainBenchUsd)
+    .map(
+      (asset) =>
+        `<tr><td>${asset}</td><td>${trainBenchUsd[asset] != null ? trainBenchUsd[asset]!.toFixed(2) + "%" : "بدون داده"}</td><td>${testBenchUsd[asset] != null ? testBenchUsd[asset]!.toFixed(2) + "%" : "بدون داده"}</td></tr>`,
+    )
+    .join("");
 
   const benchmarks = summary.benchmarks as Record<string, { returnPct: number } | null>;
   const benchmarkRows = Object.entries(benchmarks)
     .map(([k, v]) => `<tr><td>${k}</td><td>${v ? v.returnPct.toFixed(2) + "%" : "بدون داده"}</td></tr>`)
     .join("");
+
+  const benchmarksUsdReport = summary.benchmarksUsd as Record<string, number | null>;
+  const benchmarkUsdRows = Object.entries(benchmarksUsdReport)
+    .map(([k, v]) => `<tr><td>${k}</td><td>${v != null ? v.toFixed(2) + "%" : "بدون داده"}</td></tr>`)
+    .join("");
+  const strategyReturnPctUsdReport = summary.strategyReturnPctUsd as number | null;
 
   const perRule = summary.perRule as Record<string, { triggered: number; winRate: number; totalPnl: number }>;
   const ruleRows = Object.entries(perRule)
@@ -829,10 +918,14 @@ svg{background:#1a1d24;border-radius:8px;}
 سنجش صادقانهٔ افت عملکرد در بازهٔ test است، نه نتیجهٔ یک مدل که واقعاً فقط روی train تنظیم شده باشد.
 از این پس هر تنظیم وزن جدید باید فقط ستون train را ببیند.</p>
 <table><tr><th>معیار</th><th>Train</th><th>Test</th></tr>${splitRows}</table>
-<table><tr><th>بنچمارک</th><th>بازدهٔ Train</th><th>بازدهٔ Test</th></tr>${splitBenchRows}</table>
+<table><tr><th>بنچمارک (ریالی)</th><th>بازدهٔ Train</th><th>بازدهٔ Test</th></tr>${splitBenchRows}</table>
+<p style="color:#94a3b8">بند ۲ پرامپت — همان بنچمارک‌ها بعد از تعدیل با نرخ دلار همان روز (یعنی خالص از اثر سقوط ریال).
+دلار خودش نسبت به خودش همیشه ۰٪ است — این عمداً یک sanity check است، نه باگ.</p>
+<table><tr><th>بنچمارک (به دلار)</th><th>بازدهٔ Train</th><th>بازدهٔ Test</th></tr>${splitBenchUsdRows}</table>
 
 <h2>بازده در برابر بنچمارک‌ها (کل بازه)</h2>
-<table><tr><th>دارایی</th><th>بازده٪</th></tr>${benchmarkRows}</table>
+<table><tr><th>دارایی (ریالی)</th><th>بازده٪</th></tr>${benchmarkRows}</table>
+<table><tr><th>دارایی (به دلار)</th><th>بازده٪</th></tr><tr><td>استراتژی</td><td>${strategyReturnPctUsdReport != null ? strategyReturnPctUsdReport.toFixed(2) + "%" : "بدون داده"}</td></tr>${benchmarkUsdRows}</table>
 
 <h2>عملکرد به تفکیک قانون</h2>
 <table><tr><th>قانون</th><th>تعداد</th><th>win rate</th><th>مجموع سود/زیان</th></tr>${ruleRows}</table>
