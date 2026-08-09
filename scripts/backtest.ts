@@ -23,6 +23,27 @@ import { evaluateSignal, type SignalContext, type SignalRule } from "../lib/sign
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
+// حداقل تعداد trigger یک قانون در بازهٔ train برای این‌که «قابل بازتنظیم» در نظر گرفته شود.
+// طبق تأیید صریح کاربر (پرامپت ۳): قوانین با trigger کمتر از این، دستی تنظیم نمی‌شوند و وزن
+// پیش‌فرض heuristic (پایین) را نگه می‌دارند — روی نمونهٔ کوچک، «بهترین» وزن صرفاً نویز است.
+const MIN_TRIGGERS_TO_TUNE = 20;
+
+// وزن‌های اولیهٔ heuristic (مایگریشن stage03، قبل از تنظیم stage03d بر اساس بک‌تست کامل).
+// برای قوانینی که در بازهٔ train به‌اندازهٔ کافی trigger نمی‌شوند (کمتر از MIN_TRIGGERS_TO_TUNE)،
+// به همین وزن پیش‌فرض برمی‌گردیم به‌جای تنظیم دستی روی نمونهٔ کوچک.
+const STAGE03_BASELINE_RULES: SignalRule[] = [
+  { name: "rsi_oversold", definition: { type: "threshold", metric: "rsi14", op: "<", value: 30 }, weight: 15, enabled: true },
+  { name: "rsi_overbought", definition: { type: "threshold", metric: "rsi14", op: ">", value: 70 }, weight: -15, enabled: true },
+  { name: "ema_cross_up", definition: { type: "cross", fast: "EMA9", slow: "EMA26", direction: "up" }, weight: 20, enabled: true },
+  { name: "ema_cross_down", definition: { type: "cross", fast: "EMA9", slow: "EMA26", direction: "down" }, weight: -20, enabled: true },
+  { name: "suspicious_volume", definition: { type: "threshold", metric: "suspicious_volume", op: "==", value: 1 }, weight: 10, enabled: true },
+  { name: "buyer_power_strong", definition: { type: "threshold", metric: "buyer_power", op: ">", value: 2 }, weight: 15, enabled: true },
+  { name: "money_inflow_3d", definition: { type: "streak", metric: "money_flow", op: ">", value: 0, days: 3 }, weight: 20, enabled: true },
+  { name: "near_52w_high", definition: { type: "threshold", metric: "pct_from_52w_high", op: ">=", value: -3 }, weight: 15, enabled: true },
+  { name: "near_52w_low", definition: { type: "threshold", metric: "pct_from_52w_low", op: "<=", value: 3 }, weight: -15, enabled: true },
+  { name: "composite_rank_strong", definition: { type: "threshold", metric: "composite_rank", op: ">=", value: 80 }, weight: 15, enabled: true },
+];
+
 const ALLOCATION_PCT = 0.1;
 const MAX_CONCURRENT_POSITIONS = 10;
 const MAX_HOLD_DAYS = 20;
@@ -46,14 +67,21 @@ function loadEnvLocal(): Record<string, string> {
   return values;
 }
 
-function parseArgs(argv: string[]): { from: string; rules: string } {
+function parseArgs(argv: string[]): { from: string; rules: string; trainRatio: number; rulesFile: string | null } {
   let from = "2021-01-01";
   let rules = "default";
+  let trainRatio = 0.7;
+  let rulesFile: string | null = null;
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--from" && argv[i + 1]) from = argv[++i];
     if (argv[i] === "--rules" && argv[i + 1]) rules = argv[++i];
+    if (argv[i] === "--trainRatio" && argv[i + 1]) trainRatio = Number(argv[++i]);
+    if (argv[i] === "--rulesFile" && argv[i + 1]) rulesFile = argv[++i];
   }
-  return { from, rules };
+  if (!(trainRatio > 0 && trainRatio < 1)) {
+    throw new Error(`--trainRatio باید بین ۰ و ۱ باشد، دریافت شد: ${trainRatio}`);
+  }
+  return { from, rules, trainRatio, rulesFile };
 }
 
 interface CandleRow {
@@ -166,7 +194,7 @@ interface OpenPosition {
 }
 
 async function main() {
-  const { from, rules: rulesArg } = parseArgs(process.argv.slice(2));
+  const { from, rules: rulesArg, trainRatio, rulesFile } = parseArgs(process.argv.slice(2));
   const env = { ...loadEnvLocal(), ...process.env };
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -174,25 +202,42 @@ async function main() {
     console.error("NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY باید در .env.local باشند.");
     process.exit(1);
   }
-  if (rulesArg !== "default") {
-    console.error(`فقط --rules default پشتیبانی می‌شود (قوانین فعال فعلی signal_rules). دریافت شد: ${rulesArg}`);
+  const validRulesArgs = ["default", "stage03-baseline", "file"];
+  if (!validRulesArgs.includes(rulesArg)) {
+    console.error(`--rules باید یکی از ${validRulesArgs.join("/")} باشد. دریافت شد: ${rulesArg}`);
+    process.exit(1);
+  }
+  if (rulesArg === "file" && !rulesFile) {
+    console.error("--rules file نیاز به --rulesFile <path> دارد.");
     process.exit(1);
   }
 
-  console.log(`بک‌تست از ${from}، قوانین: ${rulesArg}`);
+  console.log(`بک‌تست از ${from}، قوانین: ${rulesArg}${rulesFile ? ` (${rulesFile})` : ""}`);
 
   const watchlistRows = await fetchAll<{ symbol: string }>(supabaseUrl, serviceKey, "watchlist", "symbol");
   const symbols = watchlistRows.map((w) => w.symbol);
   console.log(`${symbols.length} نماد`);
 
-  const rulesRaw = await fetchAll<SignalRule>(
-    supabaseUrl,
-    serviceKey,
-    "signal_rules",
-    "name,definition,weight,enabled",
-    { enabled: "eq.true" },
-  );
-  console.log(`${rulesRaw.length} قانون فعال`);
+  // منبع قوانین: دیتای زندهٔ signal_rules (پیش‌فرض)، وزن‌های heuristic اولیهٔ stage03 (برای
+  // تحلیل بدون leakage)، یا یک فایل JSON دلخواه (برای وزن‌های بازتنظیم‌شدهٔ کاندید — هیچ‌کدام
+  // از این دو حالت جدول production را نمی‌خوانند/نمی‌نویسند).
+  let rulesRaw: SignalRule[];
+  if (rulesArg === "stage03-baseline") {
+    rulesRaw = STAGE03_BASELINE_RULES;
+    console.log(`${rulesRaw.length} قانون (وزن‌های heuristic اولیهٔ stage03، بدون خواندن از DB)`);
+  } else if (rulesArg === "file") {
+    rulesRaw = JSON.parse(readFileSync(rulesFile as string, "utf-8")) as SignalRule[];
+    console.log(`${rulesRaw.length} قانون (از ${rulesFile})`);
+  } else {
+    rulesRaw = await fetchAll<SignalRule>(
+      supabaseUrl,
+      serviceKey,
+      "signal_rules",
+      "name,definition,weight,enabled",
+      { enabled: "eq.true" },
+    );
+    console.log(`${rulesRaw.length} قانون فعال (زندهٔ DB)`);
+  }
 
   console.log("دریافت daily_candles هر نماد...");
   const seriesBySymbol = new Map<string, SymbolSeries>();
@@ -451,19 +496,155 @@ async function main() {
     }
   }
 
-  function benchmarkReturn(asset: string): { startDate: string; endDate: string; returnPct: number } | null {
-    const rows = (benchmarksByAsset.get(asset) ?? []).filter((r) => r.date >= from && r.close != null);
+  function benchmarkReturn(
+    asset: string,
+    periodFrom: string,
+    periodTo: string,
+  ): { startDate: string; endDate: string; returnPct: number } | null {
+    const rows = (benchmarksByAsset.get(asset) ?? []).filter(
+      (r) => r.date >= periodFrom && r.date <= periodTo && r.close != null,
+    );
     if (rows.length < 2) return null;
     const startClose = rows[0].close as number;
     const endClose = rows[rows.length - 1].close as number;
     return { startDate: rows[0].date, endDate: rows[rows.length - 1].date, returnPct: (endClose / startClose - 1) * 100 };
   }
 
+  const overallTo = calendar[calendar.length - 1] ?? from;
   const strategyReturnPct = equityPoints.length > 0 ? (equity / equityPoints[0].equity - 1) * 100 : 0;
   const benchmarks = {
-    tedpix: benchmarkReturn("tedpix"),
-    usd_irr: benchmarkReturn("usd_irr"),
-    gold_18k: benchmarkReturn("gold_18k"),
+    tedpix: benchmarkReturn("tedpix", from, overallTo),
+    usd_irr: benchmarkReturn("usd_irr", from, overallTo),
+    gold_18k: benchmarkReturn("gold_18k", from, overallTo),
+  };
+
+  // ===== بخش ۱ — زیرساخت train/test split =====
+  // تقسیم بر اساس تاریخ (نه تعداد معامله): trainRatio ابتدای تقویم معاملاتی = train، باقی = test.
+  // هیچ وزن/threshold ای در این بخش تنظیم نمی‌شود — فقط گزارش‌گیری جدا برای دو بازه، تا مبنای
+  // صادقی برای هر تنظیم آیندهٔ وزن (که فقط باید روی train انجام شود) وجود داشته باشد.
+  interface PeriodMetrics {
+    from: string;
+    to: string;
+    tradingDays: number;
+    totalTrades: number;
+    winRate: number;
+    profitFactor: number;
+    expectancy: number;
+    sharpe: number;
+    sortino: number;
+    maxDrawdownPct: number;
+    periodReturnPct: number;
+    benchmarks: {
+      tedpix: ReturnType<typeof benchmarkReturn>;
+      usd_irr: ReturnType<typeof benchmarkReturn>;
+      gold_18k: ReturnType<typeof benchmarkReturn>;
+    };
+  }
+
+  function computePeriodMetrics(periodFrom: string, periodTo: string): PeriodMetrics {
+    const periodTrades = trades.filter((t) => t.entryDate >= periodFrom && t.entryDate <= periodTo);
+    const periodEquityPoints = equityPoints.filter((p) => p.date >= periodFrom && p.date <= periodTo);
+
+    const pWins = periodTrades.filter((t) => t.pnl > 0);
+    const pLosses = periodTrades.filter((t) => t.pnl <= 0);
+    const pWinRate = periodTrades.length > 0 ? (pWins.length / periodTrades.length) * 100 : 0;
+    const pGrossProfit = pWins.reduce((s, t) => s + t.pnl, 0);
+    const pGrossLoss = Math.abs(pLosses.reduce((s, t) => s + t.pnl, 0));
+    const pProfitFactor = pGrossLoss > 0 ? pGrossProfit / pGrossLoss : pGrossProfit > 0 ? Infinity : 0;
+    const pExpectancy = periodTrades.length > 0 ? periodTrades.reduce((s, t) => s + t.pnl, 0) / periodTrades.length : 0;
+
+    const pDailyReturns: number[] = [];
+    for (let i = 1; i < periodEquityPoints.length; i++) {
+      const prev = periodEquityPoints[i - 1].equity;
+      if (prev > 0) pDailyReturns.push(periodEquityPoints[i].equity / prev - 1);
+    }
+    const pMeanDaily = pDailyReturns.length > 0 ? pDailyReturns.reduce((a, b) => a + b, 0) / pDailyReturns.length : 0;
+    const pStdDaily = Math.sqrt(
+      pDailyReturns.reduce((s, r) => s + (r - pMeanDaily) ** 2, 0) / Math.max(1, pDailyReturns.length - 1),
+    );
+    const pDownside = pDailyReturns.filter((r) => r < 0);
+    const pDownsideStd = Math.sqrt(pDownside.reduce((s, r) => s + r ** 2, 0) / Math.max(1, pDownside.length));
+    const pSharpe = pStdDaily > 0 ? (pMeanDaily / pStdDaily) * Math.sqrt(TRADING_DAYS_PER_YEAR) : 0;
+    const pSortino = pDownsideStd > 0 ? (pMeanDaily / pDownsideStd) * Math.sqrt(TRADING_DAYS_PER_YEAR) : 0;
+
+    let pPeak = periodEquityPoints[0]?.equity ?? 0;
+    let pMaxDrawdownPct = 0;
+    for (const point of periodEquityPoints) {
+      if (point.equity > pPeak) pPeak = point.equity;
+      const ddPct = pPeak > 0 ? (point.equity / pPeak - 1) * 100 : 0;
+      if (ddPct < pMaxDrawdownPct) pMaxDrawdownPct = ddPct;
+    }
+
+    // بازدهٔ ایزوله‌شدهٔ همین بازه: نسبت به سرمایهٔ ابتدای همین بازه (نه سرمایهٔ اولیهٔ کل بک‌تست)،
+    // چون هدف سنجش عملکرد استراتژی در این پنجرهٔ زمانی مستقل از پنجرهٔ قبلی است.
+    const periodReturnPct =
+      periodEquityPoints.length > 1 && periodEquityPoints[0].equity > 0
+        ? (periodEquityPoints[periodEquityPoints.length - 1].equity / periodEquityPoints[0].equity - 1) * 100
+        : 0;
+
+    return {
+      from: periodFrom,
+      to: periodTo,
+      tradingDays: periodEquityPoints.length,
+      totalTrades: periodTrades.length,
+      winRate: pWinRate,
+      profitFactor: pProfitFactor,
+      expectancy: pExpectancy,
+      sharpe: pSharpe,
+      sortino: pSortino,
+      maxDrawdownPct: pMaxDrawdownPct,
+      periodReturnPct,
+      benchmarks: {
+        tedpix: benchmarkReturn("tedpix", periodFrom, periodTo),
+        usd_irr: benchmarkReturn("usd_irr", periodFrom, periodTo),
+        gold_18k: benchmarkReturn("gold_18k", periodFrom, periodTo),
+      },
+    };
+  }
+
+  const splitIndex = Math.floor(calendar.length * trainRatio);
+  const trainTo = calendar[Math.max(0, splitIndex - 1)] ?? from;
+  const testFrom = calendar[Math.min(calendar.length - 1, splitIndex)] ?? overallTo;
+  // شمارش trigger/win-rate/PnL هر قانون، فقط روی معاملاتی که entryDate‌شان در بازهٔ داده‌شده است
+  // (برای بازتنظیم وزن، این باید فقط با بازهٔ train صدا زده شود تا نشتی از test نداشته باشیم).
+  function computePeriodPerRule(periodFrom: string, periodTo: string) {
+    const perRule = new Map<string, { triggered: number; wins: number; totalPnl: number }>();
+    for (const trade of trades) {
+      if (trade.entryDate < periodFrom || trade.entryDate > periodTo) continue;
+      const signal = allSignals.find((s) => s.symbol === trade.symbol && s.date === trade.signalDate);
+      if (!signal) continue;
+      for (const r of signal.reasons) {
+        if (!r.triggered) continue;
+        const acc = perRule.get(r.rule) ?? { triggered: 0, wins: 0, totalPnl: 0 };
+        acc.triggered += 1;
+        if (trade.pnl > 0) acc.wins += 1;
+        acc.totalPnl += trade.pnl;
+        perRule.set(r.rule, acc);
+      }
+    }
+    return Object.fromEntries(
+      [...perRule.entries()].map(([name, v]) => [
+        name,
+        {
+          triggered: v.triggered,
+          winRate: v.triggered > 0 ? (v.wins / v.triggered) * 100 : 0,
+          totalPnl: v.totalPnl,
+          tunable: v.triggered >= MIN_TRIGGERS_TO_TUNE,
+        },
+      ]),
+    );
+  }
+
+  const trainMetrics = computePeriodMetrics(from, trainTo);
+  const testMetrics = computePeriodMetrics(testFrom, overallTo);
+  const trainTestSplit = {
+    trainRatio,
+    splitDate: testFrom,
+    minTriggersToTune: MIN_TRIGGERS_TO_TUNE,
+    train: trainMetrics,
+    test: testMetrics,
+    trainPerRule: computePeriodPerRule(from, trainTo),
+    testPerRule: computePeriodPerRule(testFrom, overallTo),
   };
 
   const perRule = new Map<string, { triggered: number; wins: number; totalPnl: number }>();
@@ -499,6 +680,7 @@ async function main() {
     recoveryDate,
     strategyReturnPct,
     benchmarks,
+    trainTestSplit,
     perRule: Object.fromEntries(
       [...perRule.entries()].map(([name, v]) => [
         name,
@@ -518,6 +700,19 @@ async function main() {
 
   console.log("\n=== خلاصه ===");
   console.log(JSON.stringify(summary, null, 2));
+
+  console.log(`\n=== Train (${trainMetrics.from} تا ${trainMetrics.to}) vs Test (${testMetrics.from} تا ${testMetrics.to}) ===`);
+  console.table({
+    "تعداد معامله": { train: trainMetrics.totalTrades, test: testMetrics.totalTrades },
+    "win rate٪": { train: trainMetrics.winRate.toFixed(1), test: testMetrics.winRate.toFixed(1) },
+    "profit factor": { train: trainMetrics.profitFactor.toFixed(3), test: testMetrics.profitFactor.toFixed(3) },
+    "بازدهٔ بازه٪": { train: trainMetrics.periodReturnPct.toFixed(2), test: testMetrics.periodReturnPct.toFixed(2) },
+    "حداکثر افت سرمایه٪": { train: trainMetrics.maxDrawdownPct.toFixed(2), test: testMetrics.maxDrawdownPct.toFixed(2) },
+  });
+
+  console.log(`\n=== trigger هر قانون در بازهٔ train (${trainMetrics.from} تا ${trainMetrics.to}) ===`);
+  console.table(trainTestSplit.trainPerRule);
+
   console.log(`\nگزارش: ${jsonPath}\n         ${htmlPath}`);
 }
 
@@ -550,8 +745,42 @@ function renderHtmlReport(
     .join(" ");
 
   const summaryRows = Object.entries(summary)
-    .filter(([k]) => k !== "perRule" && k !== "benchmarks")
+    .filter(([k]) => k !== "perRule" && k !== "benchmarks" && k !== "trainTestSplit")
     .map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === "number" ? v.toFixed(2) : JSON.stringify(v)}</td></tr>`)
+    .join("");
+
+  const split = summary.trainTestSplit as {
+    trainRatio: number;
+    splitDate: string;
+    train: Record<string, unknown>;
+    test: Record<string, unknown>;
+  };
+  const splitFields: [string, string][] = [
+    ["from", "شروع"],
+    ["to", "پایان"],
+    ["tradingDays", "روز معاملاتی"],
+    ["totalTrades", "تعداد معامله"],
+    ["winRate", "win rate٪"],
+    ["profitFactor", "profit factor"],
+    ["periodReturnPct", "بازدهٔ بازه٪"],
+    ["maxDrawdownPct", "حداکثر افت سرمایه٪"],
+    ["sharpe", "شارپ"],
+    ["sortino", "سورتینو"],
+  ];
+  const fmt = (v: unknown) => (typeof v === "number" ? v.toFixed(3) : String(v));
+  const splitRows = splitFields
+    .map(
+      ([key, label]) =>
+        `<tr><td>${label}</td><td>${fmt((split.train as Record<string, unknown>)[key])}</td><td>${fmt((split.test as Record<string, unknown>)[key])}</td></tr>`,
+    )
+    .join("");
+  const trainBench = split.train.benchmarks as Record<string, { returnPct: number } | null>;
+  const testBench = split.test.benchmarks as Record<string, { returnPct: number } | null>;
+  const splitBenchRows = Object.keys(trainBench)
+    .map(
+      (asset) =>
+        `<tr><td>${asset}</td><td>${trainBench[asset] ? trainBench[asset]!.returnPct.toFixed(2) + "%" : "بدون داده"}</td><td>${testBench[asset] ? testBench[asset]!.returnPct.toFixed(2) + "%" : "بدون داده"}</td></tr>`,
+    )
     .join("");
 
   const benchmarks = summary.benchmarks as Record<string, { returnPct: number } | null>;
@@ -595,7 +824,14 @@ svg{background:#1a1d24;border-radius:8px;}
 <h2>خلاصه</h2>
 <table>${summaryRows}</table>
 
-<h2>بازده در برابر بنچمارک‌ها</h2>
+<h2>Train vs Test (تقسیم ${(split.trainRatio * 100).toFixed(0)}٪/${(100 - split.trainRatio * 100).toFixed(0)}٪ بر اساس تاریخ، نقطهٔ تقسیم: ${split.splitDate})</h2>
+<p style="color:#f87171">هشدار: وزن قوانین فعلی روی کل بازه (بدون تفکیک train/test) تنظیم شده‌اند — این جدول فقط برای
+سنجش صادقانهٔ افت عملکرد در بازهٔ test است، نه نتیجهٔ یک مدل که واقعاً فقط روی train تنظیم شده باشد.
+از این پس هر تنظیم وزن جدید باید فقط ستون train را ببیند.</p>
+<table><tr><th>معیار</th><th>Train</th><th>Test</th></tr>${splitRows}</table>
+<table><tr><th>بنچمارک</th><th>بازدهٔ Train</th><th>بازدهٔ Test</th></tr>${splitBenchRows}</table>
+
+<h2>بازده در برابر بنچمارک‌ها (کل بازه)</h2>
 <table><tr><th>دارایی</th><th>بازده٪</th></tr>${benchmarkRows}</table>
 
 <h2>عملکرد به تفکیک قانون</h2>
