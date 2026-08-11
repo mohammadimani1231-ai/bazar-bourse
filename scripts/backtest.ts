@@ -19,6 +19,7 @@ import { ema, rsi, distanceFrom52Week } from "../lib/indicators.ts";
 import { computeRawScore, percentileRank } from "../lib/composite-rank.ts";
 import { perCapitaBuy, perCapitaSell, buyerPower, moneyFlow, isSuspiciousVolume } from "../lib/tabloo.ts";
 import { evaluateSignal, type SignalContext, type SignalRule } from "../lib/signal-engine.ts";
+import { dailyPctChanges, zScore, computeTensionIndex } from "../lib/tension.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -422,6 +423,48 @@ async function main() {
     const endUsd = points[points.length - 1].value / endRate;
     if (startUsd === 0) return null;
     return (endUsd / startUsd - 1) * 100;
+  }
+
+  // ===== تشخیص میانی — رژیم بازار (آرام/متوسط/هیجانی) روز باز شدن هر پوزیشن =====
+  // بازسازی retroactive مؤلفهٔ usd_irr همون فرمول tension_index تولیدی (عیناً از lib/tension.ts —
+  // dailyPctChanges/zScore/computeTensionIndex — بدون پیاده‌سازی موازی، دقیقاً همون پنجرهٔ ۹۱
+  // ردیفی/۹۰روزه‌ای که supabase/functions/compute-tension/index.ts استفاده می‌کند).
+  // صادقانه: دو مؤلفهٔ دیگر گیج واقعی (حباب سکه امامی، z-score برنت) را نمی‌شود بازسازی کرد —
+  // coin_emami/gold_ounce/brent فقط چند روز اخیر در global_quotes دارند (تازه فعال شده)، نه ۵
+  // سال تاریخچه. یعنی این یک نسخهٔ تک‌مؤلفه‌ای (فقط نوسان دلار) از گیج واقعیه، نه دقیقاً همون
+  // عددی که روی بنر «رژیم بازار» دیده می‌شود — computeTensionIndex همان تابع تولیدیه، فقط با
+  // coinBubblePct/brentChangeZ=null (که خودِ تابع gracefully میانگین را فقط از مؤلفهٔ موجود می‌گیرد).
+  const usdCloses = usdRows.map((r) => r.close as number);
+  const tensionRows: { date: string; gaugeValue: number }[] = [];
+  for (let i = 91; i < usdRows.length; i++) {
+    const history = usdCloses.slice(i - 91, i); // ۹۱ مقدار: index i-91..i-1
+    const lastClose = history[history.length - 1];
+    const baselineAbsChanges = dailyPctChanges(history.slice(0, -1)).map(Math.abs);
+    const todayClose = usdCloses[i];
+    const todayAbsChange = Math.abs(((todayClose - lastClose) / lastClose) * 100);
+    const usdVolatilityZ = zScore(todayAbsChange, baselineAbsChanges);
+    const { gaugeValue } = computeTensionIndex({ usdVolatilityZ, coinBubblePct: null, brentChangeZ: null });
+    if (gaugeValue != null) tensionRows.push({ date: usdRows[i].date, gaugeValue });
+  }
+  // آستانه‌های آرام/متوسط/هیجانی: عیناً همون باندهای رنگی components/TensionGauge.tsx
+  // (0-0.35 سبز، 0.35-0.65 زرد، 0.65-1 قرمز روی مقیاس ۰-۱۰۰) — نه عدد اختراعی جدید.
+  const TENSION_CALM_MAX = 35;
+  const TENSION_TENSE_MIN = 65;
+  function tensionAt(date: string): number | null {
+    if (tensionRows.length === 0 || date < tensionRows[0].date) return null;
+    let lo = 0;
+    let hi = tensionRows.length - 1;
+    while (lo < hi) {
+      const mid = Math.ceil((lo + hi) / 2);
+      if (tensionRows[mid].date <= date) lo = mid;
+      else hi = mid - 1;
+    }
+    return tensionRows[lo].gaugeValue;
+  }
+  function regimeOf(gaugeValue: number): "calm" | "medium" | "tense" {
+    if (gaugeValue < TENSION_CALM_MAX) return "calm";
+    if (gaugeValue >= TENSION_TENSE_MIN) return "tense";
+    return "medium";
   }
 
   // تقویم معاملاتی مشترک: اجتماع تاریخ‌های همهٔ نمادها از from به بعد
@@ -1027,6 +1070,80 @@ async function main() {
     test: computeTimeInMarket(testFrom, overallTo),
   };
 
+  // ===== نتیجهٔ تشخیص میانی — عملکرد به تفکیک رژیم بازار روز باز شدن پوزیشن =====
+  // معاملات هر دسته پراکنده در ۵ سالند (نه یک بازهٔ پیوسته مثل train/test)، پس «بازدهٔ بازه»ی
+  // معمولی معنا نداره — به‌جاش: (الف) بازدهٔ تقریبیِ ترکیب‌متوالی همون معاملات با سهم ثابت
+  // ALLOCATION_PCT (دقیقاً همون تقریب بخش bootstrap بالا، برای سازگاری روش‌شناسی)، و (ب) بازدهٔ
+  // مازاد میانگین هر معامله نسبت به تدپیکس در همون بازهٔ ورود-تا-خروجِ دقیق آن معامله (نه یک
+  // بازهٔ کلی) — چون معاملات هم‌زمان نیستند، میانگین بازدهٔ مازاد تک‌معامله‌ای معنادارتر از یک
+  // بازدهٔ کلی روی تاریخ‌های پراکنده است.
+  interface RegimeBucket {
+    regime: "calm" | "medium" | "tense";
+    totalTrades: number;
+    winRate: number;
+    profitFactor: number;
+    approxCompoundedReturnPct: number;
+    avgExcessReturnVsTedpixPct: number | null;
+    tradesWithTedpixData: number;
+  }
+
+  function computeRegimeBucket(regime: "calm" | "medium" | "tense", bucketTrades: Trade[]): RegimeBucket {
+    const wins = bucketTrades.filter((t) => t.pnl > 0);
+    const losses = bucketTrades.filter((t) => t.pnl <= 0);
+    const winRate = bucketTrades.length > 0 ? (wins.length / bucketTrades.length) * 100 : 0;
+    const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
+    const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
+    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
+
+    let compounded = 1;
+    for (const t of bucketTrades) compounded *= 1 + (t.returnPct / 100) * ALLOCATION_PCT;
+    const approxCompoundedReturnPct = (compounded - 1) * 100;
+
+    const excessReturns: number[] = [];
+    for (const t of bucketTrades) {
+      const tedpix = benchmarkReturn("tedpix", t.entryDate, t.exitDate);
+      if (tedpix) excessReturns.push(t.returnPct - tedpix.returnPct);
+    }
+    const avgExcessReturnVsTedpixPct =
+      excessReturns.length > 0 ? excessReturns.reduce((a, b) => a + b, 0) / excessReturns.length : null;
+
+    return {
+      regime,
+      totalTrades: bucketTrades.length,
+      winRate,
+      profitFactor,
+      approxCompoundedReturnPct,
+      avgExcessReturnVsTedpixPct,
+      tradesWithTedpixData: excessReturns.length,
+    };
+  }
+
+  const tradesByRegime = new Map<"calm" | "medium" | "tense", Trade[]>([
+    ["calm", []],
+    ["medium", []],
+    ["tense", []],
+  ]);
+  let tradesWithoutTensionData = 0;
+  for (const t of trades) {
+    const gauge = tensionAt(t.entryDate);
+    if (gauge == null) {
+      tradesWithoutTensionData += 1;
+      continue;
+    }
+    tradesByRegime.get(regimeOf(gauge))!.push(t);
+  }
+
+  const regimeAnalysis = {
+    tensionCalmMax: TENSION_CALM_MAX,
+    tensionTenseMin: TENSION_TENSE_MIN,
+    note:
+      "gauge بازسازی‌شدهٔ تاریخی فقط از مؤلفهٔ نوسان دلار آزاد است (حباب سکه/برنت به‌خاطر کمبود تاریخچه در دسترس نیست) — دقیقاً مقدار بنر زندهٔ رژیم بازار نیست.",
+    tradesWithoutTensionData, // معاملاتی که entryDate‌شان زودتر از ۹۱ روز اول usd_irr بوده (gauge قابل‌محاسبه نبود)
+    calm: computeRegimeBucket("calm", tradesByRegime.get("calm")!),
+    medium: computeRegimeBucket("medium", tradesByRegime.get("medium")!),
+    tense: computeRegimeBucket("tense", tradesByRegime.get("tense")!),
+  };
+
   const summary = {
     from,
     to: calendar[calendar.length - 1] ?? from,
@@ -1052,6 +1169,7 @@ async function main() {
     trainTestSplit,
     bootstrap,
     timeInMarket,
+    regimeAnalysis,
     symbolSource,
     symbolFilterReport,
     perRule: Object.fromEntries(
@@ -1152,6 +1270,38 @@ async function main() {
     },
   });
 
+  console.log(
+    `\n=== عملکرد به تفکیک رژیم بازار (آرام <${TENSION_CALM_MAX}، متوسط، هیجانی ≥${TENSION_TENSE_MIN} — بازسازی تک‌مؤلفه‌ای، توضیح در JSON) ===`,
+  );
+  console.table({
+    آرام: {
+      "تعداد معامله": regimeAnalysis.calm.totalTrades,
+      "win rate٪": regimeAnalysis.calm.winRate.toFixed(1),
+      "profit factor": regimeAnalysis.calm.profitFactor.toFixed(3),
+      "بازدهٔ تقریبی٪": regimeAnalysis.calm.approxCompoundedReturnPct.toFixed(2),
+      "میانگین بازدهٔ مازاد بر تدپیکس٪/معامله": regimeAnalysis.calm.avgExcessReturnVsTedpixPct?.toFixed(2) ?? "—",
+    },
+    متوسط: {
+      "تعداد معامله": regimeAnalysis.medium.totalTrades,
+      "win rate٪": regimeAnalysis.medium.winRate.toFixed(1),
+      "profit factor": regimeAnalysis.medium.profitFactor.toFixed(3),
+      "بازدهٔ تقریبی٪": regimeAnalysis.medium.approxCompoundedReturnPct.toFixed(2),
+      "میانگین بازدهٔ مازاد بر تدپیکس٪/معامله": regimeAnalysis.medium.avgExcessReturnVsTedpixPct?.toFixed(2) ?? "—",
+    },
+    هیجانی: {
+      "تعداد معامله": regimeAnalysis.tense.totalTrades,
+      "win rate٪": regimeAnalysis.tense.winRate.toFixed(1),
+      "profit factor": regimeAnalysis.tense.profitFactor.toFixed(3),
+      "بازدهٔ تقریبی٪": regimeAnalysis.tense.approxCompoundedReturnPct.toFixed(2),
+      "میانگین بازدهٔ مازاد بر تدپیکس٪/معامله": regimeAnalysis.tense.avgExcessReturnVsTedpixPct?.toFixed(2) ?? "—",
+    },
+  });
+  if (regimeAnalysis.tradesWithoutTensionData > 0) {
+    console.log(
+      `(${regimeAnalysis.tradesWithoutTensionData} معامله بدون gauge — روزهای اول بازه که هنوز ۹۱ روز usd_irr قبلش موجود نبود)`,
+    );
+  }
+
   console.log(`\nگزارش: ${jsonPath}\n         ${htmlPath}`);
 }
 
@@ -1192,7 +1342,8 @@ function renderHtmlReport(
         k !== "trainTestSplit" &&
         k !== "bootstrap" &&
         k !== "timeInMarket" &&
-        k !== "symbolFilterReport",
+        k !== "symbolFilterReport" &&
+        k !== "regimeAnalysis",
     )
     .map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === "number" ? v.toFixed(2) : JSON.stringify(v)}</td></tr>`)
     .join("");
@@ -1293,6 +1444,36 @@ function renderHtmlReport(
     .map((d) => `<tr><td>${d.date}</td><td>${d.tedpixChangePct.toFixed(2)}%</td><td>${d.strategyInMarket ? "بله" : "خیر (نقد)"}</td></tr>`)
     .join("");
 
+  type RegimeBucketReport = {
+    totalTrades: number;
+    winRate: number;
+    profitFactor: number;
+    approxCompoundedReturnPct: number;
+    avgExcessReturnVsTedpixPct: number | null;
+    tradesWithTedpixData: number;
+  };
+  const regimeAnalysis = summary.regimeAnalysis as {
+    tensionCalmMax: number;
+    tensionTenseMin: number;
+    note: string;
+    tradesWithoutTensionData: number;
+    calm: RegimeBucketReport;
+    medium: RegimeBucketReport;
+    tense: RegimeBucketReport;
+  };
+  const regimeRows = (
+    [
+      ["calm", "آرام"],
+      ["medium", "متوسط"],
+      ["tense", "هیجانی"],
+    ] as const
+  )
+    .map(([key, label]) => {
+      const b = regimeAnalysis[key];
+      return `<tr><td>${label}</td><td>${b.totalTrades}</td><td>${b.winRate.toFixed(1)}%</td><td>${b.profitFactor.toFixed(3)}</td><td>${b.approxCompoundedReturnPct.toFixed(2)}%</td><td>${b.avgExcessReturnVsTedpixPct != null ? b.avgExcessReturnVsTedpixPct.toFixed(2) + "%" : "—"}</td></tr>`;
+    })
+    .join("");
+
   const perRule = summary.perRule as Record<string, { triggered: number; winRate: number; totalPnl: number }>;
   const ruleRows = Object.entries(perRule)
     .map(
@@ -1357,6 +1538,10 @@ svg{background:#1a1d24;border-radius:8px;}
 <p style="color:#94a3b8">آیا استراتژی در بزرگ‌ترین روزهای رشد تدپیکس در بازار بوده یا نقد؟</p>
 <table><tr><th>بازه</th><th>روز معاملاتی</th><th>٪ روز در بازار (≥۱ پوزیشن)</th><th>٪ میانگین سرمایهٔ درگیر</th><th>٪ در بازار، ۱۰ روز پررشدترین تدپیکس</th><th>٪ در بازار، دهک اول روزهای پررشد</th></tr>${timInMarketRows}</table>
 <table><tr><th>تاریخ</th><th>رشد تدپیکس٪</th><th>استراتژی در بازار بود؟</th></tr>${timTop10Rows}</table>
+
+<h2>عملکرد به تفکیک رژیم بازار (آرام &lt;${regimeAnalysis.tensionCalmMax}، متوسط، هیجانی ≥${regimeAnalysis.tensionTenseMin})</h2>
+<p style="color:#94a3b8">${regimeAnalysis.note} ${regimeAnalysis.tradesWithoutTensionData} معامله بدون gauge (شروع بازه، تاریخچهٔ ۹۱ روزهٔ usd_irr هنوز کامل نبود) کنار گذاشته شده.</p>
+<table><tr><th>رژیم</th><th>تعداد معامله</th><th>win rate</th><th>profit factor</th><th>بازدهٔ تقریبی٪</th><th>میانگین بازدهٔ مازاد بر تدپیکس٪/معامله</th></tr>${regimeRows}</table>
 
 <h2>عملکرد به تفکیک قانون</h2>
 <table><tr><th>قانون</th><th>تعداد</th><th>win rate</th><th>مجموع سود/زیان</th></tr>${ruleRows}</table>
