@@ -10,12 +10,25 @@ daily_candles پر می‌کند — قبل از این، این ستون‌ها
 داده نداشتند.
 
 استفاده:
-    python scripts/seed_history.py
+    python scripts/seed_history.py               # فقط نمادهای watchlist (رفتار قبلی، پیش‌فرض)
+    python scripts/seed_history.py --source all   # همهٔ نمادهای شناخته‌شدهٔ pytse-client (لیست
+                                                   # آفلاین بسته‌بندی‌شده در خود کتابخانه — تقریباً
+                                                   # ۱۳۹۴ تیکر، شامل نمادهای خیلی‌وقت‌متوقف‌شده/
+                                                   # تاریخی هم؛ فیلتر نهایی «نماد قابل بک‌تست» در
+                                                   # scripts/backtest.ts بعد از این‌که داده واقعی
+                                                   # (تعداد روز معاملاتی/میانگین ارزش) در دسترس شد
+                                                   # اعمال می‌شود، نه اینجا). watchlist دست‌نخورده
+                                                   # می‌ماند — این فقط daily_candles را پر می‌کند.
 
 نیازمندی‌ها (روی Python 3.12 نصب شود، نه 3.14 — lxml هنوز wheel برای 3.14 ندارد):
     pip install -r scripts/requirements.txt
 
 متغیرهای محیطی از .env.local پروژه خوانده می‌شوند: NEXT_PUBLIC_SUPABASE_URL و SUPABASE_SERVICE_ROLE_KEY.
+
+⚠️ این اسکریپت باید از یک محیط با اتصال شبکهٔ واقعی به old.tsetmc.com اجرا شود — از sandbox
+Claude Code (و به‌طور کلی‌تر، هر IP ابری با همان محدودیت شناخته‌شده‌ای که در CLAUDE.md برای
+BrsApi History.php/Gold_Currency_Pro.php مستند شده) این endpoint اصلاً connect نمی‌شود
+(ConnectTimeoutError، نه فقط کندی) — تست زنده ۲۰۲۶-۰۸-۰۹ این را تأیید کرد.
 """
 
 from __future__ import annotations
@@ -61,6 +74,8 @@ def get_watchlist_symbols(supabase_url: str, service_role_key: str) -> list[str]
     )
     res.raise_for_status()
     return [row["symbol"] for row in res.json()]
+
+
 
 
 def rows_for_symbol(symbol: str, cutoff_date: datetime) -> list[dict]:
@@ -158,8 +173,13 @@ def main() -> None:
 
     cutoff_date = datetime.now() - timedelta(days=YEARS_OF_HISTORY * 365)
 
-    symbols = get_watchlist_symbols(supabase_url, service_role_key)
-    print(f"{len(symbols)} نماد در watchlist")
+    source = "all" if "--source" in sys.argv and sys.argv[sys.argv.index("--source") + 1] == "all" else "watchlist"
+    if source == "all":
+        symbols = sorted(tse.all_symbols())
+        print(f"{len(symbols)} نماد شناخته‌شده (لیست آفلاین pytse-client، --source all)")
+    else:
+        symbols = get_watchlist_symbols(supabase_url, service_role_key)
+        print(f"{len(symbols)} نماد در watchlist")
 
     total_rows = 0
     ohlcv_failed: list[str] = []

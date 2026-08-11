@@ -67,21 +67,29 @@ function loadEnvLocal(): Record<string, string> {
   return values;
 }
 
-function parseArgs(argv: string[]): { from: string; rules: string; trainRatio: number; rulesFile: string | null } {
+function parseArgs(argv: string[]): {
+  from: string;
+  rules: string;
+  trainRatio: number;
+  rulesFile: string | null;
+  symbolSource: string;
+} {
   let from = "2021-01-01";
   let rules = "default";
   let trainRatio = 0.7;
   let rulesFile: string | null = null;
+  let symbolSource = "watchlist";
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--from" && argv[i + 1]) from = argv[++i];
     if (argv[i] === "--rules" && argv[i + 1]) rules = argv[++i];
     if (argv[i] === "--trainRatio" && argv[i + 1]) trainRatio = Number(argv[++i]);
     if (argv[i] === "--rulesFile" && argv[i + 1]) rulesFile = argv[++i];
+    if (argv[i] === "--symbolSource" && argv[i + 1]) symbolSource = argv[++i];
   }
   if (!(trainRatio > 0 && trainRatio < 1)) {
     throw new Error(`--trainRatio باید بین ۰ و ۱ باشد، دریافت شد: ${trainRatio}`);
   }
-  return { from, rules, trainRatio, rulesFile };
+  return { from, rules, trainRatio, rulesFile, symbolSource };
 }
 
 interface CandleRow {
@@ -93,6 +101,7 @@ interface CandleRow {
   close: number | null;
   final_price: number | null;
   volume: number | null;
+  value: number | null;
   adjusted_close: number | null;
   buy_i_volume: number | null;
   sell_i_volume: number | null;
@@ -194,7 +203,7 @@ interface OpenPosition {
 }
 
 async function main() {
-  const { from, rules: rulesArg, trainRatio, rulesFile } = parseArgs(process.argv.slice(2));
+  const { from, rules: rulesArg, trainRatio, rulesFile, symbolSource } = parseArgs(process.argv.slice(2));
   const env = { ...loadEnvLocal(), ...process.env };
   const supabaseUrl = env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = env.SUPABASE_SERVICE_ROLE_KEY;
@@ -212,11 +221,31 @@ async function main() {
     process.exit(1);
   }
 
-  console.log(`بک‌تست از ${from}، قوانین: ${rulesArg}${rulesFile ? ` (${rulesFile})` : ""}`);
+  const validSymbolSources = ["watchlist", "filtered"];
+  if (!validSymbolSources.includes(symbolSource)) {
+    console.error(`--symbolSource باید یکی از ${validSymbolSources.join("/")} باشد. دریافت شد: ${symbolSource}`);
+    process.exit(1);
+  }
 
-  const watchlistRows = await fetchAll<{ symbol: string }>(supabaseUrl, serviceKey, "watchlist", "symbol");
-  const symbols = watchlistRows.map((w) => w.symbol);
-  console.log(`${symbols.length} نماد`);
+  console.log(`بک‌تست از ${from}، قوانین: ${rulesArg}${rulesFile ? ` (${rulesFile})` : ""}، نمادها: ${symbolSource}`);
+
+  // بند ۱ پرامپت «گستردن دامنهٔ نماد» — منبع نمادهای کاندید:
+  // - watchlist (پیش‌فرض، رفتار قبلی، بدون تغییر): همان ۴۵ نماد دستی/کیفی watchlist.
+  // - filtered: هر نمادی که در daily_candles دیتای تاریخی دارد (بعد از اجرای محلی
+  //   `python scripts/seed_history.py --source all` — این محیط sandbox خودش نمی‌تواند این بک‌فیل
+  //   را انجام دهد چون اتصال شبکه به old.tsetmc.com از اینجا برقرار نمی‌شود، تست زنده ۲۰۲۶-۰۸-۰۹).
+  //   لیست کاندید بعد از دریافت کندل‌ها با معیار «نماد قابل بک‌تست» زیر فیلتر می‌شود.
+  let symbols: string[];
+  if (symbolSource === "watchlist") {
+    const watchlistRows = await fetchAll<{ symbol: string }>(supabaseUrl, serviceKey, "watchlist", "symbol");
+    symbols = watchlistRows.map((w) => w.symbol);
+    console.log(`${symbols.length} نماد (watchlist)`);
+  } else {
+    console.log("دریافت فهرست نمادهای موجود در daily_candles...");
+    const rows = await fetchAll<{ symbol: string }>(supabaseUrl, serviceKey, "daily_candles", "symbol");
+    symbols = [...new Set(rows.map((r) => r.symbol))].sort();
+    console.log(`${symbols.length} نماد کاندید (هر چیزی که در daily_candles دیتا دارد)`);
+  }
 
   // منبع قوانین: دیتای زندهٔ signal_rules (پیش‌فرض)، وزن‌های heuristic اولیهٔ stage03 (برای
   // تحلیل بدون leakage)، یا یک فایل JSON دلخواه (برای وزن‌های بازتنظیم‌شدهٔ کاندید — هیچ‌کدام
@@ -246,10 +275,108 @@ async function main() {
       supabaseUrl,
       serviceKey,
       "daily_candles",
-      "symbol,date,open,high,low,close,final_price,volume,adjusted_close,buy_i_volume,sell_i_volume,buy_count_i,sell_count_i",
+      "symbol,date,open,high,low,close,final_price,volume,value,adjusted_close,buy_i_volume,sell_i_volume,buy_count_i,sell_count_i",
       { symbol: `eq.${symbol}`, order: "date.asc" },
     );
     if (candles.length > 0) seriesBySymbol.set(symbol, buildSeries(symbol, candles));
+  }
+
+  // بند ۱ پرامپت — معیار حداقلی «نماد قابل بک‌تست» (فقط در symbolSource=filtered اعمال می‌شود):
+  // ۱) حداقل ۵۰۰ روز معاملاتی در بازهٔ ۵ ساله (≈۴۰٪ از ~۱۲۳۵ روز نظری — نماد به‌تازگی پذیرش‌شده
+  //    یا اکثر بازه متوقف را کنار می‌گذارد)
+  // ۲) بدون توقف طولانی: بزرگ‌ترین فاصلهٔ روزهای تقویمی بین دو کندل متوالی حداکثر ۹۰ روز
+  // ۳) نقدشوندگی: میانگین ارزش معاملهٔ روزانه باید در صدک ۲۵ به بالای کاندیدهای عبورکرده از (۱)
+  //    و (۲) باشد — صدکی طبق قید سخت پروژه (#۴: آستانهٔ مبلغی پرسنتایلی، نه عدد تومانی ثابت،
+  //    چون تورم/سقوط ریال یک عدد ثابت را در طول ۵ سال بی‌معنا می‌کند)
+  interface SymbolStats {
+    symbol: string;
+    tradingDays: number;
+    maxGapDays: number;
+    avgDailyValue: number;
+  }
+  let symbolFilterReport: {
+    minTradingDays: number;
+    maxGapDaysAllowed: number;
+    liquidityPercentile: number;
+    liquidityThreshold: number;
+    candidates: number;
+    passedTradingDaysAndGap: number;
+    passedFinal: number;
+    droppedTooFewDays: string[];
+    droppedTooLongGap: string[];
+    droppedIlliquid: string[];
+  } | null = null;
+
+  if (symbolSource === "filtered") {
+    const MIN_TRADING_DAYS = 500;
+    const MAX_GAP_DAYS = 90;
+    const LIQUIDITY_PERCENTILE = 0.25;
+
+    const windowsBySymbol = new Map<string, CandleRow[]>();
+    let latestKnownDate = from;
+    for (const [symbol, series] of seriesBySymbol) {
+      const inWindow = series.candles.filter((c) => c.date >= from);
+      windowsBySymbol.set(symbol, inWindow);
+      const last = inWindow[inWindow.length - 1];
+      if (last && last.date > latestKnownDate) latestKnownDate = last.date;
+    }
+
+    const stats: SymbolStats[] = [];
+    for (const [symbol, inWindow] of windowsBySymbol) {
+      let maxGapDays = 0;
+      for (let i = 1; i < inWindow.length; i++) {
+        const gap = (new Date(inWindow[i].date).getTime() - new Date(inWindow[i - 1].date).getTime()) / 86_400_000;
+        if (gap > maxGapDays) maxGapDays = gap;
+      }
+      // توقف انتهایی (مثل فولاد که از ۱۴۰۴/۱۲/۰۶ متوقف است): اگر آخرین کندل این نماد خیلی قبل‌تر
+      // از آخرین تاریخ شناخته‌شده در کل دادهٔ کاندید باشد، همان «توقف طولانی» حساب می‌شود — حلقهٔ
+      // بالا فقط شکاف بین دو کندل موجود را می‌بیند، توقفی که تا امروز ادامه دارد را نمی‌بیند.
+      const last = inWindow[inWindow.length - 1];
+      if (last) {
+        const trailingGap = (new Date(latestKnownDate).getTime() - new Date(last.date).getTime()) / 86_400_000;
+        if (trailingGap > maxGapDays) maxGapDays = trailingGap;
+      }
+      const values = inWindow.map((c) => c.value ?? 0).filter((v) => v > 0);
+      const avgDailyValue = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+      stats.push({ symbol, tradingDays: inWindow.length, maxGapDays, avgDailyValue });
+    }
+
+    const droppedTooFewDays = stats.filter((s) => s.tradingDays < MIN_TRADING_DAYS).map((s) => s.symbol);
+    const droppedTooLongGap = stats
+      .filter((s) => s.tradingDays >= MIN_TRADING_DAYS && s.maxGapDays > MAX_GAP_DAYS)
+      .map((s) => s.symbol);
+    const survivedStage1 = stats.filter((s) => s.tradingDays >= MIN_TRADING_DAYS && s.maxGapDays <= MAX_GAP_DAYS);
+
+    const sortedValues = survivedStage1.map((s) => s.avgDailyValue).sort((a, b) => a - b);
+    const liquidityThreshold =
+      sortedValues.length > 0 ? sortedValues[Math.floor(sortedValues.length * LIQUIDITY_PERCENTILE)] : 0;
+
+    const droppedIlliquid = survivedStage1.filter((s) => s.avgDailyValue < liquidityThreshold).map((s) => s.symbol);
+    const passedSymbols = new Set(
+      survivedStage1.filter((s) => s.avgDailyValue >= liquidityThreshold).map((s) => s.symbol),
+    );
+
+    symbolFilterReport = {
+      minTradingDays: MIN_TRADING_DAYS,
+      maxGapDaysAllowed: MAX_GAP_DAYS,
+      liquidityPercentile: LIQUIDITY_PERCENTILE,
+      liquidityThreshold,
+      candidates: stats.length,
+      passedTradingDaysAndGap: survivedStage1.length,
+      passedFinal: passedSymbols.size,
+      droppedTooFewDays,
+      droppedTooLongGap,
+      droppedIlliquid,
+    };
+
+    for (const symbol of [...seriesBySymbol.keys()]) {
+      if (!passedSymbols.has(symbol)) seriesBySymbol.delete(symbol);
+    }
+    symbols = [...passedSymbols].sort();
+
+    console.log(
+      `فیلتر «نماد قابل بک‌تست»: ${symbolFilterReport.candidates} کاندید → ${symbolFilterReport.passedTradingDaysAndGap} با ≥${MIN_TRADING_DAYS} روز معاملاتی و بدون توقف >${MAX_GAP_DAYS} روز → ${symbolFilterReport.passedFinal} بعد از آستانهٔ نقدشوندگی (صدک ${(LIQUIDITY_PERCENTILE * 100).toFixed(0)}, آستانه=${liquidityThreshold.toFixed(0)})`,
+    );
   }
 
   console.log("دریافت benchmark_candles...");
@@ -580,6 +707,10 @@ async function main() {
     to: string;
     tradingDays: number;
     totalTrades: number;
+    // بند ۱ پرامپت — تخمین «نمونهٔ مستقل مؤثر»: چون معاملاتی که هم‌روز باز می‌شوند مستقل نیستند
+    // (یک روز رشد/افت کلی بازار می‌تواند خیلی نماد را هم‌زمان تحت تأثیر بگذارد)، تعداد روزهای
+    // معاملاتی متمایزِ باز شدن پوزیشن را جدا از تعداد خام معاملات گزارش می‌کنیم.
+    distinctEntryDays: number;
     winRate: number;
     profitFactor: number;
     expectancy: number;
@@ -647,6 +778,7 @@ async function main() {
       to: periodTo,
       tradingDays: periodEquityPoints.length,
       totalTrades: periodTrades.length,
+      distinctEntryDays: new Set(periodTrades.map((t) => t.entryDate)).size,
       winRate: pWinRate,
       profitFactor: pProfitFactor,
       expectancy: pExpectancy,
@@ -902,6 +1034,7 @@ async function main() {
     tradingDays: calendar.length,
     totalSignals: allSignals.length,
     totalTrades: trades.length,
+    distinctEntryDays: new Set(trades.map((t) => t.entryDate)).size,
     winRate,
     profitFactor,
     expectancy,
@@ -919,6 +1052,8 @@ async function main() {
     trainTestSplit,
     bootstrap,
     timeInMarket,
+    symbolSource,
+    symbolFilterReport,
     perRule: Object.fromEntries(
       [...perRule.entries()].map(([name, v]) => [
         name,
@@ -939,9 +1074,24 @@ async function main() {
   console.log("\n=== خلاصه ===");
   console.log(JSON.stringify(summary, null, 2));
 
+  if (symbolFilterReport) {
+    console.log(`\n=== فیلتر «نماد قابل بک‌تست» (symbolSource=filtered) ===`);
+    console.table({
+      "نماد کاندید (هر چیزی با دیتا در daily_candles)": symbolFilterReport.candidates,
+      [`عبور از ≥${symbolFilterReport.minTradingDays} روز معاملاتی و بدون توقف >${symbolFilterReport.maxGapDaysAllowed} روز`]:
+        symbolFilterReport.passedTradingDaysAndGap,
+      [`عبور نهایی (صدک ${(symbolFilterReport.liquidityPercentile * 100).toFixed(0)} نقدشوندگی، آستانه=${symbolFilterReport.liquidityThreshold.toFixed(0)})`]:
+        symbolFilterReport.passedFinal,
+      "افتاده — روز معاملاتی کم": symbolFilterReport.droppedTooFewDays.length,
+      "افتاده — توقف طولانی": symbolFilterReport.droppedTooLongGap.length,
+      "افتاده — کم‌نقدشوندگی": symbolFilterReport.droppedIlliquid.length,
+    });
+  }
+
   console.log(`\n=== Train (${trainMetrics.from} تا ${trainMetrics.to}) vs Test (${testMetrics.from} تا ${testMetrics.to}) ===`);
   console.table({
-    "تعداد معامله": { train: trainMetrics.totalTrades, test: testMetrics.totalTrades },
+    "تعداد معامله (خام)": { train: trainMetrics.totalTrades, test: testMetrics.totalTrades },
+    "روز معاملاتی متمایز ورود (نمونهٔ مؤثر)": { train: trainMetrics.distinctEntryDays, test: testMetrics.distinctEntryDays },
     "win rate٪": { train: trainMetrics.winRate.toFixed(1), test: testMetrics.winRate.toFixed(1) },
     "profit factor": { train: trainMetrics.profitFactor.toFixed(3), test: testMetrics.profitFactor.toFixed(3) },
     "بازدهٔ بازه٪ (ریالی)": { train: trainMetrics.periodReturnPct.toFixed(2), test: testMetrics.periodReturnPct.toFixed(2) },
@@ -1041,7 +1191,8 @@ function renderHtmlReport(
         k !== "benchmarksUsd" &&
         k !== "trainTestSplit" &&
         k !== "bootstrap" &&
-        k !== "timeInMarket",
+        k !== "timeInMarket" &&
+        k !== "symbolFilterReport",
     )
     .map(([k, v]) => `<tr><td>${k}</td><td>${typeof v === "number" ? v.toFixed(2) : JSON.stringify(v)}</td></tr>`)
     .join("");
@@ -1056,7 +1207,8 @@ function renderHtmlReport(
     ["from", "شروع"],
     ["to", "پایان"],
     ["tradingDays", "روز معاملاتی"],
-    ["totalTrades", "تعداد معامله"],
+    ["totalTrades", "تعداد معامله (خام)"],
+    ["distinctEntryDays", "روز معاملاتی متمایز ورود (نمونهٔ مؤثر)"],
     ["winRate", "win rate٪"],
     ["profitFactor", "profit factor"],
     ["periodReturnPct", "بازدهٔ بازه٪ (ریالی)"],
