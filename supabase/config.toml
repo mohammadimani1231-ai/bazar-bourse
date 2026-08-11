@@ -380,6 +380,11 @@ import_map = "./functions/deno.json"
 # همین import map (zod + date-fns-jalali) چون lib/jalali.ts و lib/weeklyBriefSchema.ts را import می‌کند.
 import_map = "./functions/deno.json"
 
+[functions.telegram-webhook]
+# Telegram هیچ JWT سوپابیسی نمی‌فرستد — امنیت به‌جایش با هدر X-Telegram-Bot-Api-Secret-Token
+# (بررسی‌شده داخل خود تابع) تأمین می‌شود.
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.
