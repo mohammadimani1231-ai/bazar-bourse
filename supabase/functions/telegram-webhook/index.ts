@@ -62,19 +62,36 @@ Deno.serve(async (req) => {
     const text = update.message?.text?.trim() ?? "";
 
     if (chat) {
+      const subscribe = async () => {
+        await client.from("telegram_subscribers").upsert({
+          chat_id: chat.id,
+          username: chat.username ?? null,
+          first_name: chat.first_name ?? null,
+          active: true,
+        });
+        await sendReply(token, chat.id, "✅ ثبت شدید — از این پس هشدارها و گزارش‌های داشبورد بورس برای شما ارسال می‌شود.");
+      };
+
       if (text.startsWith("/start")) {
-        const providedCode = text.slice("/start".length).trim();
-        if (!inviteCode || providedCode === inviteCode) {
-          await client.from("telegram_subscribers").upsert({
-            chat_id: chat.id,
-            username: chat.username ?? null,
-            first_name: chat.first_name ?? null,
-            active: true,
-          });
-          await sendReply(token, chat.id, "✅ ثبت شدید — از این پس هشدارها و گزارش‌های داشبورد بورس برای شما ارسال می‌شود.");
+        // دکمهٔ «شروع» تلگرام همیشه فقط «/start» خالی می‌فرستد (بدون کد) — کاربر نمی‌تونه از
+        // اون دکمه کد رو اضافه کنه. «/start@نام_بات کد» هم ممکنه (داخل گروه) — @نام_بات رو هم جدا می‌کنیم.
+        const rest = text.slice("/start".length).replace(/^@\S+/, "").trim();
+        if (!inviteCode) {
+          await subscribe();
+        } else if (rest === inviteCode) {
+          await subscribe();
+        } else if (rest === "") {
+          await sendReply(
+            token,
+            chat.id,
+            "برای ثبت‌نام، کد دعوتی که از صاحب پروژه گرفتید رو به‌عنوان پیام بعدی (تکی، بدون چیز دیگه) بفرستید.",
+          );
         } else {
-          await sendReply(token, chat.id, "کد دعوت اشتباه است. لطفاً به‌صورت «/start کد_دعوت» دوباره امتحان کنید.");
+          await sendReply(token, chat.id, "کد دعوت اشتباه است. کد رو دوباره چک کنید و به‌عنوان پیام بعدی بفرستید.");
         }
+      } else if (inviteCode && text === inviteCode) {
+        // فلوی جایگزین: کاربر بعد از دیدن پیام بالا، کد رو تنها به‌عنوان یک پیام مستقل می‌فرسته.
+        await subscribe();
       } else if (text.startsWith("/stop")) {
         await client.from("telegram_subscribers").update({ active: false }).eq("chat_id", chat.id);
         await sendReply(token, chat.id, "اشتراک شما لغو شد. برای فعال‌سازی دوباره /start را بزنید.");
