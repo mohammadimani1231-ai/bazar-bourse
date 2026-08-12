@@ -21,6 +21,15 @@ import { perCapitaBuy, perCapitaSell, buyerPower, moneyFlow, isSuspiciousVolume 
 import { evaluateSignal, type SignalContext, type SignalRule } from "../lib/signal-engine.ts";
 import { dailyPctChanges, zScore, computeTensionIndex } from "../lib/tension.ts";
 import { isMaxHoldReached } from "../lib/exitRules.ts";
+import {
+  winRatePct,
+  profitFactor,
+  expectancy,
+  equityReturns,
+  sharpeRatio,
+  sortinoRatio,
+  maxDrawdown,
+} from "../lib/tradeMetrics.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -643,29 +652,14 @@ async function main() {
 
   console.log(`${allSignals.length} سیگنال، ${trades.length} معامله`);
 
-  // ===== متریک‌ها =====
-  const wins = trades.filter((t) => t.pnl > 0);
-  const losses = trades.filter((t) => t.pnl <= 0);
-  const winRate = trades.length > 0 ? (wins.length / trades.length) * 100 : 0;
-  const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
-  const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
-  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
-  const expectancy = trades.length > 0 ? trades.reduce((s, t) => s + t.pnl, 0) / trades.length : 0;
+  // ===== متریک‌ها (تعاریف مشترک از lib/tradeMetrics.ts — قید #۳) =====
+  const winRate = winRatePct(trades);
+  const overallProfitFactor = profitFactor(trades);
+  const overallExpectancy = expectancy(trades);
 
-  const dailyReturns: number[] = [];
-  for (let i = 1; i < equityPoints.length; i++) {
-    const prev = equityPoints[i - 1].equity;
-    if (prev > 0) dailyReturns.push(equityPoints[i].equity / prev - 1);
-  }
-  const meanDaily = dailyReturns.length > 0 ? dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length : 0;
-  const stdDaily = Math.sqrt(
-    dailyReturns.reduce((s, r) => s + (r - meanDaily) ** 2, 0) / Math.max(1, dailyReturns.length - 1),
-  );
-  const downside = dailyReturns.filter((r) => r < 0);
-  const downsideStd = Math.sqrt(downside.reduce((s, r) => s + r ** 2, 0) / Math.max(1, downside.length));
-  const TRADING_DAYS_PER_YEAR = 250;
-  const sharpe = stdDaily > 0 ? (meanDaily / stdDaily) * Math.sqrt(TRADING_DAYS_PER_YEAR) : 0;
-  const sortino = downsideStd > 0 ? (meanDaily / downsideStd) * Math.sqrt(TRADING_DAYS_PER_YEAR) : 0;
+  const dailyReturns = equityReturns(equityPoints);
+  const sharpe = sharpeRatio(dailyReturns);
+  const sortino = sortinoRatio(dailyReturns);
 
   let peak = equityPoints[0]?.equity ?? equity;
   let maxDrawdownPct = 0;
@@ -782,35 +776,14 @@ async function main() {
     const periodTrades = trades.filter((t) => t.entryDate >= periodFrom && t.entryDate <= periodTo);
     const periodEquityPoints = equityPoints.filter((p) => p.date >= periodFrom && p.date <= periodTo);
 
-    const pWins = periodTrades.filter((t) => t.pnl > 0);
-    const pLosses = periodTrades.filter((t) => t.pnl <= 0);
-    const pWinRate = periodTrades.length > 0 ? (pWins.length / periodTrades.length) * 100 : 0;
-    const pGrossProfit = pWins.reduce((s, t) => s + t.pnl, 0);
-    const pGrossLoss = Math.abs(pLosses.reduce((s, t) => s + t.pnl, 0));
-    const pProfitFactor = pGrossLoss > 0 ? pGrossProfit / pGrossLoss : pGrossProfit > 0 ? Infinity : 0;
-    const pExpectancy = periodTrades.length > 0 ? periodTrades.reduce((s, t) => s + t.pnl, 0) / periodTrades.length : 0;
+    const pWinRate = winRatePct(periodTrades);
+    const pProfitFactor = profitFactor(periodTrades);
+    const pExpectancy = expectancy(periodTrades);
 
-    const pDailyReturns: number[] = [];
-    for (let i = 1; i < periodEquityPoints.length; i++) {
-      const prev = periodEquityPoints[i - 1].equity;
-      if (prev > 0) pDailyReturns.push(periodEquityPoints[i].equity / prev - 1);
-    }
-    const pMeanDaily = pDailyReturns.length > 0 ? pDailyReturns.reduce((a, b) => a + b, 0) / pDailyReturns.length : 0;
-    const pStdDaily = Math.sqrt(
-      pDailyReturns.reduce((s, r) => s + (r - pMeanDaily) ** 2, 0) / Math.max(1, pDailyReturns.length - 1),
-    );
-    const pDownside = pDailyReturns.filter((r) => r < 0);
-    const pDownsideStd = Math.sqrt(pDownside.reduce((s, r) => s + r ** 2, 0) / Math.max(1, pDownside.length));
-    const pSharpe = pStdDaily > 0 ? (pMeanDaily / pStdDaily) * Math.sqrt(TRADING_DAYS_PER_YEAR) : 0;
-    const pSortino = pDownsideStd > 0 ? (pMeanDaily / pDownsideStd) * Math.sqrt(TRADING_DAYS_PER_YEAR) : 0;
-
-    let pPeak = periodEquityPoints[0]?.equity ?? 0;
-    let pMaxDrawdownPct = 0;
-    for (const point of periodEquityPoints) {
-      if (point.equity > pPeak) pPeak = point.equity;
-      const ddPct = pPeak > 0 ? (point.equity / pPeak - 1) * 100 : 0;
-      if (ddPct < pMaxDrawdownPct) pMaxDrawdownPct = ddPct;
-    }
+    const pDailyReturns = equityReturns(periodEquityPoints);
+    const pSharpe = sharpeRatio(pDailyReturns);
+    const pSortino = sortinoRatio(pDailyReturns);
+    const pMaxDrawdownPct = maxDrawdown(periodEquityPoints).maxDrawdownPct;
 
     // بازدهٔ ایزوله‌شدهٔ همین بازه: نسبت به سرمایهٔ ابتدای همین بازه (نه سرمایهٔ اولیهٔ کل بک‌تست)،
     // چون هدف سنجش عملکرد استراتژی در این پنجرهٔ زمانی مستقل از پنجرهٔ قبلی است.
@@ -949,16 +922,14 @@ async function main() {
     const returnSamples: number[] = [];
     const excessSamples: number[] = [];
     for (let iter = 0; iter < BOOTSTRAP_ITERATIONS; iter++) {
-      let grossProfit = 0;
-      let grossLoss = 0;
+      const resampled: Trade[] = [];
       let compounded = 1;
       for (let i = 0; i < tradeList.length; i++) {
         const t = tradeList[Math.floor(rng() * tradeList.length)];
-        if (t.pnl > 0) grossProfit += t.pnl;
-        else grossLoss += Math.abs(t.pnl);
+        resampled.push(t);
         compounded *= 1 + (t.returnPct / 100) * ALLOCATION_PCT;
       }
-      const pf = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
+      const pf = profitFactor(resampled);
       const totalReturnPct = (compounded - 1) * 100;
       pfSamples.push(pf);
       returnSamples.push(totalReturnPct);
@@ -1092,13 +1063,6 @@ async function main() {
   }
 
   function computeRegimeBucket(regime: "calm" | "medium" | "tense", bucketTrades: Trade[]): RegimeBucket {
-    const wins = bucketTrades.filter((t) => t.pnl > 0);
-    const losses = bucketTrades.filter((t) => t.pnl <= 0);
-    const winRate = bucketTrades.length > 0 ? (wins.length / bucketTrades.length) * 100 : 0;
-    const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
-    const grossLoss = Math.abs(losses.reduce((s, t) => s + t.pnl, 0));
-    const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : grossProfit > 0 ? Infinity : 0;
-
     let compounded = 1;
     for (const t of bucketTrades) compounded *= 1 + (t.returnPct / 100) * ALLOCATION_PCT;
     const approxCompoundedReturnPct = (compounded - 1) * 100;
@@ -1114,8 +1078,8 @@ async function main() {
     return {
       regime,
       totalTrades: bucketTrades.length,
-      winRate,
-      profitFactor,
+      winRate: winRatePct(bucketTrades),
+      profitFactor: profitFactor(bucketTrades),
       approxCompoundedReturnPct,
       avgExcessReturnVsTedpixPct,
       tradesWithTedpixData: excessReturns.length,
@@ -1157,8 +1121,8 @@ async function main() {
     totalTrades: trades.length,
     distinctEntryDays: new Set(trades.map((t) => t.entryDate)).size,
     winRate,
-    profitFactor,
-    expectancy,
+    profitFactor: overallProfitFactor,
+    expectancy: overallExpectancy,
     sharpe,
     sortino,
     maxDrawdownPct,

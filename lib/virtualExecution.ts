@@ -1,4 +1,5 @@
 import type { QueueState } from "./tabloo.ts";
+import { tehranDayBounds } from "./time/tehranDay.ts";
 
 /**
  * منطق خالص اجرای مجازی سفارش‌ها (پرتفوی مجازی خودکار — قانون #۱۴ CLAUDE.md).
@@ -11,7 +12,28 @@ export type VirtualExecutionStatus =
   | "partial"
   | "pending_queue"
   | "rejected_liquidity"
-  | "rejected_max_positions";
+  | "rejected_max_positions"
+  | "rejected_stale_data";
+
+/**
+ * فهرست کامل مقادیر ستون virtual_trades.status (ستون text بدون CHECK است، پس این‌جا منبع
+ * مستندسازی است): مقادیر بالا به‌علاوهٔ `expired_queue` (سفارش صف منقضی‌شده) و `closed`.
+ */
+
+/**
+ * آیا این کوت مال همان روز تقویمی تهرانِ «الان» است؟
+ *
+ * چرا لازم است (باگ واقعی، نه احتیاط نظری): گارد بازار (`lib/market-status.ts::isMarketOpen`)
+ * سه لایه دارد — بازهٔ نظری، جدول تعطیلات، و heuristic تغییر حجم — ولی لایهٔ سوم وقتی کمتر از
+ * دو اسنپ‌شات اخیر موجود باشد **کاملاً رد می‌شود** و بازار «باز» فرض می‌شود. در یک تعطیلی
+ * ثبت‌نشده که هم‌زمان collect-tse هم قطع باشد (که سابقهٔ مستند دارد)، این یعنی اجرا روی قیمت
+ * دیروز. مهم‌تر: حتی وقتی بازار **واقعاً باز است**، آخرین کوت یک نماد متوقف (مثل فولاد که از
+ * ۱۴۰۴/۱۲/۰۶ متوقف است) می‌تواند مال ماه‌ها قبل باشد — چیزی که گارد بازار اصلاً نمی‌بیند چون
+ * سراسری است، نه per-symbol.
+ */
+export function isQuoteFromToday(capturedAt: string, nowUtc: Date): boolean {
+  return tehranDayBounds(new Date(capturedAt)).date === tehranDayBounds(nowUtc).date;
+}
 
 export interface VirtualExecutionInput {
   /** نقد آزاد پرتفوی در لحظهٔ تصمیم. */

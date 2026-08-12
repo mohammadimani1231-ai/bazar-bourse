@@ -6,6 +6,7 @@ import {
   decideBuyExecution,
   shouldExpirePending,
   realizedPnl,
+  isQuoteFromToday,
   type VirtualExecutionInput,
 } from "./virtualExecution.ts";
 
@@ -119,6 +120,31 @@ describe("مدل صف", () => {
     expect(shouldExpirePending(2, 3)).toBe(false);
     expect(shouldExpirePending(3, 3)).toBe(true);
     expect(shouldExpirePending(4, 3)).toBe(true);
+  });
+});
+
+describe("تازگی کوت (گارد دادهٔ کهنه/تعطیلی)", () => {
+  // ۰۸:۰۰ UTC وسط ساعات بازار است = ۱۱:۳۰ تهران همان روز
+  const NOW = new Date("2026-08-15T08:00:00Z");
+
+  it("کوت همان روز معاملاتی تازه است", () => {
+    expect(isQuoteFromToday("2026-08-15T06:05:00Z", NOW)).toBe(true);
+    expect(isQuoteFromToday("2026-08-15T07:59:00Z", NOW)).toBe(true);
+  });
+
+  it("کوت روز معاملاتی قبلی کهنه است (سناریوی تعطیلی ثبت‌نشده)", () => {
+    expect(isQuoteFromToday("2026-08-14T09:20:00Z", NOW)).toBe(false);
+  });
+
+  it("کوت ماه‌ها قبل کهنه است (سناریوی نماد متوقف مثل فولاد)", () => {
+    expect(isQuoteFromToday("2026-02-25T09:00:00Z", NOW)).toBe(false);
+  });
+
+  it("مرز روز بر اساس نیمه‌شب تهران است، نه نیمه‌شب UTC", () => {
+    // ۲۰:۳۰ UTC روز ۰۸-۱۴ = ۰۰:۰۰ تهران روز ۰۸-۱۵ → همان روزِ NOW
+    expect(isQuoteFromToday("2026-08-14T20:30:00Z", NOW)).toBe(true);
+    // ۲۰:۲۹ UTC = ۲۳:۵۹ تهران روز ۰۸-۱۴ → روز قبل
+    expect(isQuoteFromToday("2026-08-14T20:29:00Z", NOW)).toBe(false);
   });
 });
 

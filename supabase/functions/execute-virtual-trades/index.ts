@@ -4,7 +4,13 @@ import { checkMarketOpen } from "../_shared/marketStatus.ts";
 import { queueState } from "../../../lib/tabloo.ts";
 import { atr } from "../../../lib/indicators.ts";
 import { calculatePositionSize, suggestStopLossFromAtr } from "../../../lib/position-sizing.ts";
-import { decideBuyExecution, shouldExpirePending, realizedPnl, sellProceeds } from "../../../lib/virtualExecution.ts";
+import {
+  decideBuyExecution,
+  shouldExpirePending,
+  realizedPnl,
+  sellProceeds,
+  isQuoteFromToday,
+} from "../../../lib/virtualExecution.ts";
 import { decideExit } from "../../../lib/exitRules.ts";
 import { tradingDaysBetween } from "../../../lib/tradingDays.ts";
 import type { MarketRegime } from "../../../lib/marketRegime.ts";
@@ -100,7 +106,8 @@ Deno.serve(async () => {
       .maybeSingle();
     const regime = ((regimeSetting?.value as string | undefined) ?? "normal") as MarketRegime;
 
-    const nowIso = new Date().toISOString();
+    const nowUtc = new Date();
+    const nowIso = nowUtc.toISOString();
     const buyFeePct = Number(portfolio.buy_fee_pct);
     const sellFeePct = Number(portfolio.sell_fee_pct);
 
@@ -135,6 +142,17 @@ Deno.serve(async () => {
       const row = (data ?? null) as QuoteRow | null;
       quoteCache.set(symbol, row);
       return row;
+    }
+
+    /**
+     * کوت تازه = کوتی که هم وجود دارد، هم قیمت دارد، هم مال همان روز تقویمی تهران است.
+     * هیچ تصمیمی (ورود، پرکردن سفارش صف، خروج) نباید روی کوت کهنه گرفته شود — نه در
+     * تعطیلی ثبت‌نشده، نه روی نماد متوقف.
+     */
+    async function freshQuote(symbol: string): Promise<QuoteRow | null> {
+      const q = await latestQuote(symbol);
+      if (q == null || q.last_price == null) return null;
+      return isQuoteFromToday(q.captured_at, nowUtc) ? q : null;
     }
 
     const { data: openRaw, error: openError } = await client
@@ -215,8 +233,13 @@ Deno.serve(async () => {
 
     // ── ۱. سفارش‌های در انتظار صف ──────────────────────────────────────────────
     for (const order of pendingOrders) {
-      const q = await latestQuote(order.symbol);
-      if (!q || q.last_price == null) continue;
+      const q = await freshQuote(order.symbol);
+      if (!q || q.last_price == null) {
+        // دادهٔ امروز نداریم — نه پر می‌کنیم نه شمارندهٔ انتظار را جلو می‌بریم (روزی که اصلاً
+        // معامله‌ای نشده نباید جزو «۳ روز انتظار صف» حساب شود).
+        actions.push(`${order.symbol}: انتظار صف بدون تغییر (دادهٔ امروز موجود نیست)`);
+        continue;
+      }
       const qs = queueState(q);
 
       if (qs.lockedBuy === true) {
@@ -299,7 +322,9 @@ Deno.serve(async () => {
     const sellSignalSymbols = new Set((recentSells ?? []).map((s) => s.symbol as string));
 
     for (const pos of [...openPositions]) {
-      const q = await latestQuote(pos.symbol);
+      // خروج هم روی کوت کهنه ممنوع است — نمی‌شود با قیمت دیروز فروخت. پوزیشن باز می‌ماند
+      // و چرخهٔ بعدی که دادهٔ تازه داشته باشد دوباره بررسی می‌کند.
+      const q = await freshQuote(pos.symbol);
       if (!q || q.last_price == null || pos.entry_at == null || pos.share_count == null) continue;
 
       const reason = decideExit({
@@ -372,7 +397,8 @@ Deno.serve(async () => {
     for (const signal of recentBuys ?? []) {
       if (already.has(signal.id as number)) continue;
       const symbol = signal.symbol as string;
-      const q = await latestQuote(symbol);
+      const q = await freshQuote(symbol);
+      const staleQuote = q == null ? await latestQuote(symbol) : null;
       const qs = q ? queueState(q) : { lockedBuy: null, lockedSell: null, heavy: null };
 
       const base = {
@@ -380,7 +406,7 @@ Deno.serve(async () => {
         symbol,
         direction: "buy",
         signal_at: signal.created_at,
-        signal_price: q?.last_price ?? null,
+        signal_price: q?.last_price ?? staleQuote?.last_price ?? null,
         signal_reasons: signal.reasons,
         signal_queue_state: qs,
         signal_market_open: true,
@@ -390,10 +416,14 @@ Deno.serve(async () => {
       };
 
       if (q == null || q.last_price == null) {
-        await client
-          .from("virtual_trades")
-          .insert({ ...base, status: "rejected_liquidity", status_note: "قیمت زنده‌ای برای این نماد موجود نیست" });
-        actions.push(`${symbol}: rejected_liquidity (بدون قیمت)`);
+        // یا اصلاً کوتی نیست، یا هست ولی مال امروز نیست (تعطیلی ثبت‌نشده / نماد متوقف /
+        // قطعی کالکتور). در هر سه حالت اجرا روی این قیمت غلط است.
+        const note =
+          staleQuote == null
+            ? "هیچ کوتی برای این نماد ثبت نشده"
+            : `آخرین کوت مال ${staleQuote.captured_at.slice(0, 10)} است، نه امروز — دادهٔ کهنه/تعطیلی یا نماد متوقف`;
+        await client.from("virtual_trades").insert({ ...base, status: "rejected_stale_data", status_note: note });
+        actions.push(`${symbol}: rejected_stale_data`);
         continue;
       }
 

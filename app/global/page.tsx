@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
+import { fetchAllPages } from "@/lib/supabase/fetchAllPages.ts";
 import { downsampleToDaily } from "@/lib/downsampleDaily.ts";
 import { buildEqualWeightIndex, type DatedValue } from "@/lib/syntheticIndex.ts";
 import { crossCorrelation, bestLag } from "@/lib/stats.ts";
@@ -11,23 +12,6 @@ export const dynamic = "force-dynamic";
 
 const REFINERY_SYMBOLS = ["شپنا", "شبندر", "شتران", "شبریز", "شسپا", "شراز"];
 const METALS_SYMBOLS = ["فملی", "میدکو", "فایرا", "سیسکو", "هرمز", "ارفع", "کاوه", "آلومینا"];
-
-const PAGE_SIZE = 1000;
-
-/** PostgREST سقف پیش‌فرض ۱۰۰۰ ردیف دارد؛ .limit() بزرگ‌تر را ساکت نادیده می‌گیرد — باید صفحه‌بندی کرد. */
-async function fetchAllPages<T>(
-  fetchPage: (from: number, to: number) => Promise<T[]>,
-): Promise<T[]> {
-  const all: T[] = [];
-  let from = 0;
-  for (;;) {
-    const page = await fetchPage(from, from + PAGE_SIZE - 1);
-    all.push(...page);
-    if (page.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return all;
-}
 
 async function fetchSymbolCloses(supabase: ReturnType<typeof createServerSupabaseClient>, symbol: string): Promise<DatedValue[]> {
   const rows = await fetchAllPages(async (from, to) => {
