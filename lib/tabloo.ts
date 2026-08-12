@@ -7,8 +7,12 @@ function average(values: (number | null)[]): number | null {
   return nums.reduce((a, b) => a + b, 0) / nums.length;
 }
 
-/** پرسنتایل خطی (روش نزدیک به numpy 'linear') روی آرایه‌ای از اعداد. */
-function percentile(values: number[], p: number): number | null {
+/**
+ * پرسنتایل خطی (روش نزدیک به numpy 'linear') روی آرایه‌ای از اعداد.
+ * export شده تا برچسب‌گذاری علت (lib/outcomeLabels.ts) هم از همین تعریف استفاده کند —
+ * قید #۴ می‌گوید آستانه‌ها پرسنتایلی باشند، و قید #۳ می‌گوید تعریف موازی نسازیم.
+ */
+export function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const idx = (p / 100) * (sorted.length - 1);

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Activity, Filter, Globe, FileText, HeartPulse, LineChart, Briefcase, Shield } from "lucide-react";
+import { LayoutDashboard, Activity, Filter, Globe, FileText, HeartPulse, LineChart, Briefcase, Shield, ClipboardList } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
@@ -10,6 +10,7 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/signals", label: "سیگنال‌ها", icon: Activity },
   { href: "/screener", label: "اسکرینر", icon: Filter },
   { href: "/portfolio", label: "پرتفوی", icon: Briefcase },
+  { href: "/track-record", label: "کارنامهٔ عملکرد", icon: ClipboardList },
   { href: "/global", label: "نمای جهانی", icon: Globe },
   { href: "/reports", label: "گزارش‌ها", icon: FileText },
   { href: "/settings/risk", label: "تنظیمات ریسک", icon: Shield },

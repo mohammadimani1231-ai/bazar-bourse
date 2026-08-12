@@ -2,7 +2,7 @@ import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { sendTelegramMessage } from "../_shared/telegram.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
-import { downsampleToDaily } from "../../../lib/downsampleDaily.ts";
+import { downsampleToDaily, type TimestampedValue } from "../../../lib/downsampleDaily.ts";
 import { buildEqualWeightIndex, type DatedValue } from "../../../lib/syntheticIndex.ts";
 import { detectCorrelationBreaks } from "../../../lib/correlationBreaks.ts";
 import { logReturns } from "../../../lib/stats.ts";
@@ -13,6 +13,20 @@ import { formatJalaliDay } from "../../../lib/jalali.ts";
 import { renderReportShell, renderReportSection, renderReportTable, renderReportParagraph } from "../../../lib/reportHtml.ts";
 import { renderBarChartSvg, renderLineChartSvg } from "../../../lib/reportCharts.ts";
 import { parseWeeklySummaryResponse, type WeeklySummary } from "../../../lib/weeklyBriefSchema.ts";
+import { buildVirtualPortfolioReport } from "../../../lib/virtualPortfolioReport.ts";
+import { OUTCOME_LABEL_FA, summarizeLabels } from "../../../lib/outcomeLabels.ts";
+
+/** برچسب فارسی وضعیت رکوردهای virtual_trades — همان نگاشت صفحهٔ /track-record. */
+const VIRTUAL_STATUS_FA: Record<string, string> = {
+  executed: "اجرا شد",
+  partial: "اجرای جزئی (کمبود نقد)",
+  pending_queue: "در انتظار صف",
+  expired_queue: "منقضی به دلیل صف",
+  rejected_liquidity: "رد: کمبود نقدینگی",
+  rejected_max_positions: "رد: سقف پوزیشن",
+  rejected_stale_data: "رد: دادهٔ کهنه/تعطیلی",
+  closed: "بسته‌شده",
+};
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://bazar-bourse.vercel.app";
 const MODEL = "claude-sonnet-5";
@@ -54,7 +68,13 @@ function pctChange(current: number | null, prev: number | null): number | null {
   return Number((((current - prev) / prev) * 100).toFixed(2));
 }
 
-async function fetchGlobalWindow(client: Client, asset: string, sinceIso: string) {
+/**
+ * ستون قیمت را به‌عنوان `value` برمی‌گرداند چون downsampleToDaily دقیقاً همین نام را
+ * می‌خواند. قبلاً `price` خام برگردانده می‌شد و چون `row.value` همیشه undefined بود،
+ * downsampleToDaily **هر ردیف را ساکت دور می‌ریخت** — یعنی نمودار تنش و تحلیل شکست
+ * همبستگی برنت در گزارش هفتگی همیشه خالی تولید می‌شدند (باگ واقعی، کشف‌شده ۲۰۲۶-۰۸-۱۲).
+ */
+async function fetchGlobalWindow(client: Client, asset: string, sinceIso: string): Promise<TimestampedValue[]> {
   const { data } = await client
     .from("global_quotes")
     .select("price, captured_at")
@@ -62,7 +82,10 @@ async function fetchGlobalWindow(client: Client, asset: string, sinceIso: string
     .gte("captured_at", sinceIso)
     .order("captured_at", { ascending: true })
     .limit(1000);
-  return (data ?? []) as { price: number | null; captured_at: string }[];
+  return ((data ?? []) as { price: number | null; captured_at: string }[]).map((r) => ({
+    value: r.price,
+    captured_at: r.captured_at,
+  }));
 }
 
 async function fetchSymbolCloses(client: Client, symbol: string, limit = 1300): Promise<DatedValue[]> {
@@ -203,10 +226,10 @@ Deno.serve(async () => {
       // با فقط یک نقطهٔ داده در کل هفته (مثلا وقفهٔ جمع‌آوری)، «شروع» و «پایان» همان یک ردیف
       // می‌شود و تغییر ۰٪ گمراه‌کننده است — باید صریح «داده کافی نیست» باشد، نه ۰٪ واقعی.
       if (weekRows.length < 2) {
-        return { asset, label, start: null, end: weekRows[0]?.price ?? rows[rows.length - 1]?.price ?? null, changePct: null };
+        return { asset, label, start: null, end: weekRows[0]?.value ?? rows[rows.length - 1]?.value ?? null, changePct: null };
       }
-      const start = weekRows[0].price;
-      const end = weekRows[weekRows.length - 1].price;
+      const start = weekRows[0].value;
+      const end = weekRows[weekRows.length - 1].value;
       return { asset, label, start, end, changePct: pctChange(end, start) };
     });
     dataSnapshot.global_weekly = globalWeekly;
@@ -331,13 +354,89 @@ Deno.serve(async () => {
       ),
     );
 
+    // ===== ۵ب. پرتفوی مجازی خودکار (قانون #۱۴ — فقط گزارش، بدون هیچ اثر برگشتی) =====
+    const vp = await buildVirtualPortfolioReport(client);
+    const weekTrades = vp.allTrades.filter((t) => t.signal_at >= weekStartIso);
+    const weekStatusCounts: Record<string, number> = {};
+    for (const t of weekTrades) weekStatusCounts[t.status] = (weekStatusCounts[t.status] ?? 0) + 1;
+
+    // معاملاتی که همین هفته بسته شدند (بر اساس id رکورد، نه تطبیق نماد — یک نماد می‌تواند
+    // چند رکورد داشته باشد و تطبیق با نماد رکورد اشتباه را برمی‌داشت).
+    const weekClosedRows = vp.allTrades.filter((t) => t.status === "closed" && (t.exit_at ?? "") >= weekStartIso);
+    const weekReturns = weekClosedRows.map((t) => Number(t.return_pct ?? 0));
+    const weekAvgReturnPct =
+      weekReturns.length > 0 ? weekReturns.reduce((a, b) => a + b, 0) / weekReturns.length : null;
+    const weekLabelCounts = summarizeLabels(
+      weekClosedRows.map((t) => vp.outcomeLabels.get(t.id)!.label),
+    );
+
+    dataSnapshot.virtual_portfolio = {
+      signals_this_week: weekTrades.length,
+      status_counts_this_week: weekStatusCounts,
+      closed_this_week: weekClosedRows.length,
+      total_return_pct_since_start: vp.metrics.totalReturnPct,
+      win_rate_pct: vp.metrics.sampleAdequate ? vp.metrics.winRatePct : null,
+      sample_adequate: vp.metrics.sampleAdequate,
+      benchmarks: vp.benchmarkComparison,
+      label_counts_all_time: vp.labelCounts,
+      caveats: vp.metrics.notes,
+    };
+
+    sections.push(
+      renderReportSection(
+        "۶. پرتفوی مجازی خودکار",
+        renderReportParagraph(
+          "سیستم سیگنال‌های خودش را با بودجهٔ فرضی اجرا می‌کند تا عملکردشان قابل راستی‌آزمایی باشد. " +
+            "نتایج این بخش هرگز به‌صورت خودکار وزن یا آستانهٔ سیگنال‌ها را تغییر نمی‌دهند.",
+        ) +
+          renderReportTable(
+            [
+              { header: "معیار", accessor: (r: { k: string; v: string }) => r.k },
+              { header: "مقدار", accessor: (r: { k: string; v: string }) => r.v },
+            ],
+            [
+              { k: "سیگنال این هفته", v: formatFaNumber(weekTrades.length) },
+              ...Object.entries(weekStatusCounts).map(([status, count]) => ({
+                k: `— ${VIRTUAL_STATUS_FA[status] ?? status}`,
+                v: formatFaNumber(count),
+              })),
+              { k: "معاملهٔ بسته‌شده این هفته", v: formatFaNumber(weekClosedRows.length) },
+              { k: "میانگین بازده معاملات بستهٔ این هفته", v: weekAvgReturnPct == null ? "—" : formatFaPercent(weekAvgReturnPct, 2) },
+              { k: "بازده از ابتدا", v: formatFaPercent(vp.metrics.totalReturnPct, 2) },
+              { k: "نرخ برد (از ابتدا)", v: vp.metrics.sampleAdequate ? formatFaPercent(vp.metrics.winRatePct, 1) : "دادهٔ کافی نیست" },
+            ],
+          ) +
+          renderReportTable(
+            [
+              { header: "بنچمارک", accessor: (r: { label: string }) => r.label },
+              { header: "بازده بنچمارک", accessor: (r: { benchmarkReturnPct: number | null }) => (r.benchmarkReturnPct == null ? "دادهٔ موجود نیست" : formatFaPercent(r.benchmarkReturnPct, 2)) },
+              { header: "مازاد پرتفوی", accessor: (r: { excessPct: number | null }) => (r.excessPct == null ? "—" : formatFaPercent(r.excessPct, 2)) },
+            ],
+            vp.benchmarkComparison,
+          ) +
+          renderReportTable(
+            [
+              { header: "برچسب علت (این هفته)", accessor: (r: { k: string; v: string }) => r.k },
+              { header: "تعداد", accessor: (r: { k: string; v: string }) => r.v },
+            ],
+            (Object.keys(OUTCOME_LABEL_FA) as (keyof typeof OUTCOME_LABEL_FA)[]).map((key) => ({
+              k: OUTCOME_LABEL_FA[key],
+              v: formatFaNumber(weekLabelCounts[key]),
+            })),
+          ) +
+          (vp.metrics.notes.length > 0
+            ? renderReportParagraph("محدودیت آماری: " + vp.metrics.notes.join(" "))
+            : ""),
+      ),
+    );
+
     // ===== ۷. هفتهٔ پیش رو =====
     const nextWeekEndIso = new Date(nowMs + 7 * 24 * 60 * 60_000).toISOString();
     const { data: upcomingHolidays } = await client.from("market_holidays").select("date, title").gte("date", todayStr).lte("date", tehranDayBounds(new Date(nextWeekEndIso)).date).order("date", { ascending: true });
     dataSnapshot.week_ahead = { holidays: upcomingHolidays ?? [] };
     sections.push(
       renderReportSection(
-        "۶. هفتهٔ پیش رو",
+        "۷. هفتهٔ پیش رو",
         renderReportTable(
           [
             { header: "تاریخ", accessor: (r: { date: string }) => formatJalaliDay(r.date + "T00:00:00Z") },
@@ -361,7 +460,7 @@ Deno.serve(async () => {
 
     sections.push(
       renderReportSection(
-        "۷. رتبه‌بندی نمادهای واچ‌لیست",
+        "۸. رتبه‌بندی نمادهای واچ‌لیست",
         renderReportTable(
           [
             { header: "نماد", accessor: (r: (typeof rankingRows)[number]) => r.symbol },

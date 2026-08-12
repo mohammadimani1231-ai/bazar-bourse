@@ -15,6 +15,13 @@ import {
   type TradePerformance,
 } from "./virtualPerformance.ts";
 import type { EquityPoint } from "./tradeMetrics.ts";
+import {
+  labelOutcome,
+  summarizeLabels,
+  type OutcomeLabel,
+  type OutcomeLabelResult,
+  type TensionPoint,
+} from "./outcomeLabels.ts";
 
 /**
  * لایهٔ گردآوری دادهٔ موتور عملکرد پرتفوی مجازی (بخش ۲): از DB می‌خواند و توابع خالص
@@ -35,6 +42,7 @@ export interface VirtualTradeRow {
   entry_price: number | null;
   share_count: number | null;
   entry_fee: number | null;
+  queue_wait_days: number;
   exit_at: string | null;
   exit_price: number | null;
   exit_fee: number | null;
@@ -55,8 +63,32 @@ export interface VirtualPortfolioReport {
   horizons: HorizonResult[];
   /** شمارش وضعیت همهٔ رکوردها — پایهٔ گزارش «چند سیگنال اجرا/رد/در انتظار شد». */
   statusCounts: Record<string, number>;
+  /** برچسب علت نتیجه (بخش ۳) برای هر رکورد، به کلید id. */
+  outcomeLabels: Map<number, OutcomeLabelResult>;
+  /** توزیع برچسب‌ها روی همهٔ رکوردها. */
+  labelCounts: Record<OutcomeLabel, number>;
   openTrades: VirtualTradeRow[];
   allTrades: VirtualTradeRow[];
+}
+
+/** تاریخچهٔ روزانهٔ گِیج تنش — آخرین مقدار هر روز، مبنای آستانهٔ پرسنتایلی بخش ۳. */
+async function fetchTensionHistory(client: SupabaseClient): Promise<TensionPoint[]> {
+  const rows = await fetchAllPages<{ price: number | null; captured_at: string }>(async (from, to) => {
+    const { data } = await client
+      .from("global_quotes")
+      .select("price, captured_at")
+      .eq("asset", "tension_index")
+      .order("captured_at", { ascending: true })
+      .range(from, to);
+    return (data ?? []) as { price: number | null; captured_at: string }[];
+  });
+
+  const lastByDate = new Map<string, number>();
+  for (const r of rows) {
+    if (r.price == null) continue;
+    lastByDate.set(r.captured_at.slice(0, 10), Number(r.price));
+  }
+  return [...lastByDate].map(([date, gaugeValue]) => ({ date, gaugeValue })).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 async function fetchBenchmarkSeries(client: SupabaseClient, asset: string): Promise<BenchmarkSeries> {
@@ -119,7 +151,7 @@ export async function buildVirtualPortfolioReport(
     const { data } = await client
       .from("virtual_trades")
       .select(
-        "id, signal_id, symbol, status, status_note, signal_at, signal_price, signal_tension_gauge, entry_at, entry_price, share_count, entry_fee, exit_at, exit_price, exit_fee, exit_reason, realized_pnl, return_pct",
+        "id, signal_id, symbol, status, status_note, signal_at, signal_price, signal_tension_gauge, entry_at, entry_price, share_count, entry_fee, queue_wait_days, exit_at, exit_price, exit_fee, exit_reason, realized_pnl, return_pct",
       )
       .order("signal_at", { ascending: true })
       .range(from, to);
@@ -209,10 +241,30 @@ export async function buildVirtualPortfolioReport(
         )
       : [];
 
+  const tensionHistory = await fetchTensionHistory(client);
+  const outcomeLabels = new Map<number, OutcomeLabelResult>();
+  for (const t of allTrades) {
+    outcomeLabels.set(
+      t.id,
+      labelOutcome(
+        {
+          status: t.status,
+          queueWaitDays: Number(t.queue_wait_days ?? 0),
+          pnl: t.realized_pnl == null ? null : Number(t.realized_pnl),
+          entryDate: t.entry_at?.slice(0, 10) ?? null,
+          exitDate: t.exit_at?.slice(0, 10) ?? null,
+        },
+        tensionHistory,
+      ),
+    );
+  }
+
   return {
     initialCapital,
     startedAt: firstEntryDate,
     metrics,
+    outcomeLabels,
+    labelCounts: summarizeLabels([...outcomeLabels.values()].map((l) => l.label)),
     equityPoints,
     benchmarkCurves: [
       { label: "شاخص کل", points: rebaseToEquity(tedpix, calendar, initialCapital) },
