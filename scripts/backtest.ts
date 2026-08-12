@@ -48,6 +48,9 @@ const STAGE03_BASELINE_RULES: SignalRule[] = [
 const ALLOCATION_PCT = 0.1;
 const MAX_CONCURRENT_POSITIONS = 10;
 const MAX_HOLD_DAYS = 20;
+// عمداً ۱.۵٪ مانده (نه نرخ واقعی‌تر امروز ~۱.۷۵٪): همهٔ گزارش‌های تاریخی بک‌تست با همین عدد
+// تولید شده‌اند و تغییرش مقایسه‌پذیری آن‌ها را از بین می‌برد. پرتفوی مجازی (قانون #۱۴ در
+// CLAUDE.md) نرخ واقعی‌تر ۱.۷۵٪ را به‌صورت قابل‌تنظیم در virtual_portfolio.fee_pct دارد.
 const ROUND_TRIP_FEE = 0.015;
 const QUEUE_RETRY_DAYS = 3;
 
@@ -1500,6 +1503,10 @@ svg{background:#1a1d24;border-radius:8px;}
 .pos{color:#4ade80}.neg{color:#f87171}
 </style></head><body>
 <h1>گزارش بک‌تست ${summary.from} تا ${summary.to}</h1>
+<p style="color:#fbbf24">توجه: همهٔ اعداد این گزارش با کارمزد رفت‌وبرگشت ${(ROUND_TRIP_FEE * 100).toFixed(2)}٪ محاسبه شده‌اند.
+نرخ واقعی امروز بورس تهران (کارمزد خرید ~۰.۳۷٪ + کارمزد فروش ~۰.۸۸٪ + مالیات فروش ۰.۵٪) حدود ۱.۷۵٪ است —
+یعنی این اعداد کمی خوش‌بینانه‌اند. این ثابت عمداً برای مقایسه‌پذیری با گزارش‌های تاریخی قبلی تغییر نکرده؛
+پرتفوی مجازی زنده با نرخ قابل‌تنظیم ۱.۷۵٪ کار می‌کند.</p>
 
 <h2>Equity Curve</h2>
 <svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}"><polyline points="${points}" fill="none" stroke="#4ade80" stroke-width="2"/></svg>
