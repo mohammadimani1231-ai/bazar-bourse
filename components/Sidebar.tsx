@@ -26,10 +26,10 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col border-l border-border bg-surface lg:w-56">
+    <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col border-l border-shell-border bg-background lg:w-56">
       <Link
         href="/"
-        className="flex h-14 shrink-0 items-center justify-center gap-2 border-b border-border px-2 text-sm font-bold text-foreground lg:justify-start lg:px-4"
+        className="flex h-14 shrink-0 items-center justify-center gap-2 border-b border-shell-border px-2 text-sm font-bold text-shell-text lg:justify-start lg:px-4"
       >
         <LineChart className="h-6 w-6 shrink-0 text-accent" aria-hidden="true" />
         <span className="hidden lg:inline">بازار بورس</span>
@@ -46,7 +46,7 @@ export function Sidebar() {
               className={`flex items-center justify-center gap-3 rounded-md border-r-2 px-2 py-2.5 text-sm transition-colors lg:justify-start lg:px-3 ${
                 active
                   ? "border-warning bg-warning/10 font-bold text-warning"
-                  : "border-transparent font-medium text-muted hover:bg-surface-2 hover:text-foreground"
+                  : "border-transparent font-medium text-shell-muted hover:bg-shell-border hover:text-shell-text"
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />

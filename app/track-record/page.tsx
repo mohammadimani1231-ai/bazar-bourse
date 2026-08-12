@@ -67,14 +67,14 @@ export default async function TrackRecordPage() {
   return (
     <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 lg:p-6">
       <header>
-        <h1 className="text-2xl font-bold text-foreground">کارنامهٔ عملکرد پرتفوی مجازی</h1>
-        <p className="mt-1 text-sm text-muted">
+        <h1 className="text-2xl font-bold text-shell-text">کارنامهٔ عملکرد پرتفوی مجازی</h1>
+        <p className="mt-1 text-sm text-shell-muted">
           سیستم سیگنال‌های خودش را با بودجهٔ فرضی {formatFaNumber(report.initialCapital)} تومان اجرا می‌کند و نتیجه را
           بدون دستکاری اینجا نشان می‌دهد. این صفحه ابزار اعتمادسازی است، نه تبلیغ — اگر عملکرد بد بود، همان‌طور
           نمایش داده می‌شود. نتایج این پرتفوی هرگز به‌صورت خودکار وزن یا آستانهٔ سیگنال‌ها را تغییر نمی‌دهند.
         </p>
-        <p className="mt-2 text-xs text-muted">
-          این دفتر <strong className="text-foreground">کاملاً خودکار</strong> است و کاملاً از دفتر معاملات دستی شما در{" "}
+        <p className="mt-2 text-xs text-shell-muted">
+          این دفتر <strong className="text-shell-text">کاملاً خودکار</strong> است و کاملاً از دفتر معاملات دستی شما در{" "}
           <a href="/portfolio" className="text-accent hover:underline">
             صفحهٔ پرتفوی
           </a>{" "}
@@ -82,18 +82,20 @@ export default async function TrackRecordPage() {
           روی دیگری اثر نمی‌گذارد.
         </p>
         {report.startedAt && (
-          <p className="ltr-nums mt-1 text-xs text-muted">
+          <p className="ltr-nums mt-1 text-xs text-shell-muted">
             شروع فعالیت: {formatJalaliDay(report.startedAt + "T00:00:00Z")} · {formatFaNumber(metrics.periodDays)} روز
           </p>
         )}
       </header>
 
       {!hasData ? (
-        <EmptyState
-          icon={ClipboardList}
-          title="هنوز هیچ سیگنالی در پرتفوی مجازی اجرا نشده"
-          description="موتور اجرای مجازی در ساعات بازار هر ۱۰ دقیقه سیگنال‌های جدید را برمی‌دارد. اولین رکوردها بعد از نخستین جلسهٔ معاملاتی با سیگنال ظاهر می‌شوند."
-        />
+        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
+          <EmptyState
+            icon={ClipboardList}
+            title="هنوز هیچ سیگنالی در پرتفوی مجازی اجرا نشده"
+            description="موتور اجرای مجازی در ساعات بازار هر ۱۰ دقیقه سیگنال‌های جدید را برمی‌دارد. اولین رکوردها بعد از نخستین جلسهٔ معاملاتی با سیگنال ظاهر می‌شوند."
+          />
+        </div>
       ) : (
         <>
           {metrics.notes.length > 0 && (

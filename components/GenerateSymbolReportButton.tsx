@@ -26,7 +26,7 @@ export function GenerateSymbolReportButton({ symbol }: { symbol: string }) {
       <button
         onClick={handleClick}
         disabled={isPending}
-        className="rounded bg-warning px-3 py-1.5 text-xs font-bold text-black hover:opacity-90 disabled:opacity-50"
+        className="rounded bg-warning px-3 py-1.5 text-xs font-bold text-white hover:opacity-90 disabled:opacity-50"
       >
         {isPending ? "در حال تولید گزارش…" : "تولید گزارش عمیق نماد"}
       </button>

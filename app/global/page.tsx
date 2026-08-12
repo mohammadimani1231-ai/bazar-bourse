@@ -120,11 +120,11 @@ export default async function GlobalPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold">نمای جهانی</h1>
+      <h1 className="text-lg font-bold text-shell-text">نمای جهانی</h1>
       <RebaseChart series={rebaseSeries} newsMarkers={newsMarkers} />
       <CorrelationHeatmap assets={heatmapAssets} />
       <LeadLagPanel pairs={leadLagPairs} />
-      <p className="text-[11px] text-muted">
+      <p className="text-[11px] text-shell-muted">
         برنت/انس طلا/DXY از منبع global_quotes می‌آیند که به‌تازگی فعال شده — تا چند هفتهٔ آینده که
         تاریخچهٔ بیشتری جمع شود، نمودارهای بالا کامل‌تر می‌شوند.
       </p>

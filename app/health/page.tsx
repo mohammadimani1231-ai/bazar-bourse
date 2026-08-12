@@ -51,7 +51,7 @@ export default async function HealthPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold">سلامت پایپ‌لاین</h1>
+      <h1 className="text-lg font-bold text-shell-text">سلامت پایپ‌لاین</h1>
 
       <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <div className="mb-1 flex items-center justify-between text-sm">

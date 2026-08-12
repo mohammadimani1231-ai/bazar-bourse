@@ -18,7 +18,7 @@ export function SignalsTabs({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-1 text-sm">
+      <div className="flex w-fit gap-1 rounded-lg border border-border bg-surface p-1 text-sm shadow-card">
         <button
           onClick={() => setTab("active")}
           className={`rounded-md px-3 py-1.5 ${tab === "active" ? "bg-accent text-white" : "text-muted hover:bg-surface-2"}`}

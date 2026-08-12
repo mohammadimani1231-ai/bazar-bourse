@@ -148,7 +148,7 @@ export default async function SymbolPage({
         previousClose={previousClose}
       />
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between rounded-lg border border-border bg-surface shadow-card p-3">
         <div className="grid grid-cols-2 gap-x-8 gap-y-1 text-xs">
           <div className="flex justify-between gap-4">
             <span className="text-muted">قیمت پایانی روز قبل</span>

@@ -26,17 +26,19 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     if (!report) {
       return (
         <div className="flex flex-col gap-4">
-          <Link href="/reports" className="text-xs text-muted hover:underline">
+          <Link href="/reports" className="text-xs text-shell-muted hover:underline">
             ← بازگشت به آرشیو
           </Link>
-          <EmptyState icon={FileSearch} title="گزارش پیدا نشد" />
+          <div className="rounded-lg border border-border bg-surface shadow-card p-3">
+            <EmptyState icon={FileSearch} title="گزارش پیدا نشد" />
+          </div>
         </div>
       );
     }
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between print:hidden">
-          <Link href="/reports" className="text-xs text-muted hover:underline">
+          <Link href="/reports" className="text-xs text-shell-muted hover:underline">
             ← بازگشت به آرشیو
           </Link>
           <PrintReportButton />
@@ -58,12 +60,12 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold">آرشیو گزارش‌ها</h1>
+      <h1 className="text-lg font-bold text-shell-text">آرشیو گزارش‌ها</h1>
 
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface shadow-card p-3">
         <label className="flex flex-col gap-1 text-xs text-muted">
           نوع
-          <select name="type" defaultValue={type ?? ""} className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-fg">
+          <select name="type" defaultValue={type ?? ""} className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-foreground">
             <option value="">همه</option>
             <option value="weekly">هفتگی</option>
             <option value="symbol">تک‌نماد</option>
@@ -76,10 +78,10 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             name="symbol"
             defaultValue={symbol ?? ""}
             placeholder="مثلا فولاد"
-            className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-fg"
+            className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-foreground"
           />
         </label>
-        <button type="submit" className="rounded border border-border px-3 py-1.5 text-xs font-bold text-fg hover:bg-surface-2">
+        <button type="submit" className="rounded border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface-2">
           اعمال فیلتر
         </button>
         {(type || symbol) && (
@@ -90,7 +92,9 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       </form>
 
       {(reports ?? []).length === 0 ? (
-        <EmptyState icon={FileSearch} title="گزارشی مطابق این فیلتر پیدا نشد" />
+        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
+          <EmptyState icon={FileSearch} title="گزارشی مطابق این فیلتر پیدا نشد" />
+        </div>
       ) : (
         <div className="flex flex-col gap-2">
           {(reports ?? []).map((r) => (

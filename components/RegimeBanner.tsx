@@ -10,7 +10,7 @@ export function RegimeBanner({ regime }: { regime: MarketRegime }) {
   const meta = REGIME_META[regime];
 
   return (
-    <div className={`border-b border-border px-4 py-1.5 text-center text-xs font-bold ${meta.className}`}>
+    <div className={`border-b border-shell-border px-4 py-1.5 text-center text-xs font-bold ${meta.className}`}>
       {meta.label}
     </div>
   );

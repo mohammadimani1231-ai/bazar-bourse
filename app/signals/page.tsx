@@ -51,7 +51,7 @@ export default async function SignalsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold">سیگنال‌ها</h1>
+      <h1 className="text-lg font-bold text-shell-text">سیگنال‌ها</h1>
       <SignalsTabs initialSignals={initialSignals} ruleStats={ruleStats} scorePoints={scorePoints} />
     </div>
   );

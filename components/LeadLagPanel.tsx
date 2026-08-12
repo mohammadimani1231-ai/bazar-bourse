@@ -2,6 +2,7 @@
 
 import ReactECharts from "echarts-for-react";
 import type { CcfPoint } from "@/lib/stats.ts";
+import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export interface LeadLagPair {
   label: string;
@@ -28,23 +29,23 @@ function PairChart({ pair }: { pair: LeadLagPair }) {
       type: "category",
       name: "لگ (روز)",
       data: pair.points.map((p) => p.lag),
-      axisLine: { lineStyle: { color: "#2a2a33" } },
-      axisLabel: { color: "#9a9aa5" },
+      axisLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLabel: { color: CHART_COLORS.muted },
     },
     yAxis: {
       type: "value",
       min: -1,
       max: 1,
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: "#2a2a33" } },
-      axisLabel: { color: "#9a9aa5" },
+      splitLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLabel: { color: CHART_COLORS.muted },
     },
     series: [
       {
         type: "bar",
         data: pair.points.map((p) => ({
           value: p.correlation,
-          itemStyle: { color: p.lag === pair.best?.lag ? "#6366f1" : "#3a3a44" },
+          itemStyle: { color: p.lag === pair.best?.lag ? CHART_COLORS.accent : CHART_COLORS.neutral },
         })),
       },
     ],

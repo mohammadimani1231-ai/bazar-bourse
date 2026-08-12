@@ -1,18 +1,22 @@
 /**
- * رنگ‌های چارت‌ها (lightweight-charts/ECharts روی canvas اجرا می‌شوند و نمی‌توانند
- * var(--up) زندهٔ CSS را بخوانند، پس این‌ها باید مقدار ثابت باشند) — منبع واحد به‌جای
- * پخش‌شدن hex در هر کامپوننت چارت؛ باید دقیقاً با app/globals.css هم‌گام بمانند.
+ * رنگ‌های چارت‌ها (lightweight-charts/ECharts هرچند حالا svg-renderer دارند، مقادیرشان را
+ * از option جاوااسکریپتی می‌گیرند نه CSS زنده، پس نمی‌توانند var(--up) را در زمان اجرا بخوانند
+ * — این‌ها باید مقدار ثابت باشند) — منبع واحد به‌جای پخش‌شدن hex در هر کامپوننت چارت؛ باید
+ * دقیقاً با app/globals.css هم‌گام بمانند.
+ *
+ * از نسخهٔ هیبرید (۲۰۲۶-۰۸-۱۲، کارت‌ها روشن‌اند) این مقادیر برای کارت روشن بازتنظیم شدند —
+ * همان اعداد app/globals.css، نه چیز جدا.
  */
 export const CHART_COLORS = {
-  up: "#22c55e",
-  down: "#ef4444",
-  warning: "#eab308",
+  up: "#16a34a",
+  down: "#dc2626",
+  warning: "#b45309",
   accent: "#6366f1",
-  foreground: "#e4e6eb",
-  muted: "#868b98",
-  border: "#2b303f",
-  surface2: "#232735",
-  neutral: "#3d4254",
+  foreground: "#15171e",
+  muted: "#6b7280",
+  border: "#e3e5eb",
+  surface2: "#f2f3f6",
+  neutral: "#cbd0d9",
 } as const;
 
 export function hexToRgb(hex: string): [number, number, number] {
