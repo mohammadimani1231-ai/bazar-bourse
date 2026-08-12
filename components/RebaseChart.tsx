@@ -122,6 +122,7 @@ export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[
         <ReactECharts
           option={option}
           style={{ height: 360 }}
+          opts={{ renderer: "svg" }}
           onEvents={{
             click: (params: { componentType?: string; data?: { newsUrl?: string } }) => {
               if (params.componentType === "markLine" && params.data?.newsUrl) {

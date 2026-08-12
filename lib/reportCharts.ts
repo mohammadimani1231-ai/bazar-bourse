@@ -52,7 +52,7 @@ export function renderBarChartSvg(
     })
     .join("");
 
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Vazirmatn, sans-serif">
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Tahoma, sans-serif">
     <line x1="${centerX}" y1="0" x2="${centerX}" y2="${height}" stroke="${AXIS_COLOR}" stroke-width="1" />
     ${bars}
   </svg>`;
@@ -92,7 +92,7 @@ export function renderLineChartSvg(points: LinePoint[], options: { width?: numbe
   const firstLabel = validPoints[0].x;
   const lastLabel = validPoints[validPoints.length - 1].x;
 
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Vazirmatn, sans-serif">
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Tahoma, sans-serif">
     <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" />
     <text x="${padding}" y="${height - 4}" font-size="10" fill="${AXIS_COLOR}">${escapeXml(firstLabel)}</text>
     <text x="${width - padding}" y="${height - 4}" font-size="10" fill="${AXIS_COLOR}" text-anchor="end">${escapeXml(lastLabel)}</text>
@@ -155,7 +155,7 @@ export function renderMultiLineChartSvg(
   const first = usable[0].points[0]?.x ?? "";
   const last = usable[0].points[usable[0].points.length - 1]?.x ?? "";
 
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Vazirmatn, sans-serif">
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Tahoma, sans-serif">
     ${paths}
     <text x="${padding}" y="${padding + plotHeight + 12}" font-size="10" fill="${AXIS_COLOR}">${escapeXml(first)}</text>
     <text x="${width - padding}" y="${padding + plotHeight + 12}" font-size="10" fill="${AXIS_COLOR}" text-anchor="end">${escapeXml(last)}</text>

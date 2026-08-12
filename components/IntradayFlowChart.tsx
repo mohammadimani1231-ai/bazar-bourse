@@ -102,15 +102,15 @@ export function IntradayFlowChart({ points }: { points: IntradayPoint[] }) {
     <div className="flex flex-col gap-3">
       <div>
         <p className="mb-1 text-xs text-muted">سرانه خرید/فروش حقیقی</p>
-        <ReactECharts option={perCapitaOption} style={{ height: 160 }} />
+        <ReactECharts option={perCapitaOption} opts={{ renderer: "svg" }} style={{ height: 160 }} />
       </div>
       <div>
         <p className="mb-1 text-xs text-muted">قدرت خریدار (سرانه خرید ÷ سرانه فروش)</p>
-        <ReactECharts option={buyerPowerOption} style={{ height: 140 }} />
+        <ReactECharts option={buyerPowerOption} opts={{ renderer: "svg" }} style={{ height: 140 }} />
       </div>
       <div>
         <p className="mb-1 text-xs text-muted">ورود پول تجمعی حقیقی</p>
-        <ReactECharts option={moneyFlowOption} style={{ height: 140 }} />
+        <ReactECharts option={moneyFlowOption} opts={{ renderer: "svg" }} style={{ height: 140 }} />
       </div>
     </div>
   );

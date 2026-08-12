@@ -109,7 +109,7 @@ export function CorrelationHeatmap({ assets }: { assets: AssetSeries[] }) {
           ))}
         </div>
       </div>
-      <ReactECharts option={option} style={{ height: 360 }} />
+      <ReactECharts option={option} opts={{ renderer: "svg" }} style={{ height: 360 }} />
       {insufficientCount > 0 && (
         <p className="mt-2 text-[11px] text-muted">
           {insufficientCount} جفت هنوز داده کافی برای این بازه ندارند (خاکستری).

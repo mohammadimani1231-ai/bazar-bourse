@@ -84,7 +84,7 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
         {scorePoints.length === 0 ? (
           <EmptyState icon={LineChart} title="هنوز داده‌ای نیست" />
         ) : (
-          <ReactECharts option={scatterOption} style={{ height: 280 }} />
+          <ReactECharts option={scatterOption} opts={{ renderer: "svg" }} style={{ height: 280 }} />
         )}
       </div>
     </div>

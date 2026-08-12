@@ -38,13 +38,20 @@ export function TensionGauge({ value, capturedAt }: { value: number | null; capt
         axisTick: { show: false },
         splitNumber: 5,
         splitLine: { length: 10, lineStyle: { color: CHART_COLORS.foreground, width: 2 } },
-        axisLabel: { color: CHART_COLORS.muted, fontSize: 10, distance: 22 },
+        axisLabel: {
+          color: CHART_COLORS.muted,
+          fontSize: 10,
+          distance: 22,
+          fontFamily: "var(--font-vazirmatn)",
+          formatter: (v: number) => formatFaNumber(v, 0),
+        },
         detail: {
           valueAnimation: true,
           formatter: (v: number) => formatFaNumber(v, 0),
           color: CHART_COLORS.foreground,
           fontSize: 22,
           fontWeight: "bold",
+          fontFamily: "var(--font-vazirmatn)",
           offsetCenter: [0, "60%"],
         },
         data: [{ value }],
@@ -55,7 +62,7 @@ export function TensionGauge({ value, capturedAt }: { value: number | null; capt
   return (
     <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <h2 className="mb-1 text-sm font-bold">شاخص تنش</h2>
-      <ReactECharts option={option} style={{ height: 180 }} />
+      <ReactECharts option={option} opts={{ renderer: "svg" }} style={{ height: 180 }} />
       {capturedAt && (
         <p className="ltr-nums text-center text-[11px] text-muted">آخرین محاسبه: {formatJalaliDateTime(capturedAt)}</p>
       )}

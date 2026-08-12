@@ -60,7 +60,7 @@ function PairChart({ pair }: { pair: LeadLagPair }) {
           </span>
         )}
       </p>
-      <ReactECharts option={option} style={{ height: 200 }} />
+      <ReactECharts option={option} opts={{ renderer: "svg" }} style={{ height: 200 }} />
     </div>
   );
 }

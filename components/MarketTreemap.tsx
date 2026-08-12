@@ -97,6 +97,13 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
             fontFamily: "var(--font-vazirmatn)",
             fontSize: 11,
             fontWeight: "bold" as const,
+            // ECharts پیش‌فرضش برای upperLabel چپ‌چین است و به dir="rtl" صفحه کاری ندارد
+            // (کاملاً svg-محور، مثل قید #۱۲ دربارهٔ چارت‌ها). align:"right" امتحان و زنده
+            // تست شد ولی هیچ اثری نداشت — به‌نظر محدودیت واقعی خودِ upperLabel در این نسخهٔ
+            // ECharts است (align:"left"/"center" هر دو کار می‌کنند، فقط "right" نه).
+            // align:"center" جایگزین شد: برچسب دقیقاً وسط خوشهٔ خودش می‌نشیند و چون وسط‌چین
+            // است، مستقل از جهت هم درست خوانده می‌شود — نیازی به دور زدن باگ نبود.
+            align: "center" as const,
           },
           // borderRadius/gap بزرگ‌تر از پیش‌فرض ECharts — باکس‌های نرم‌تر با فاصلهٔ نفس‌کشیدن،
           // به‌جای بلوک‌های سخت چسبیده به‌هم که در بازخورد کاربر «مثل جدول» دیده می‌شد.
@@ -143,6 +150,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
       <ReactECharts
         option={option}
         style={{ height: 420 }}
+        opts={{ renderer: "svg" }}
         onEvents={{
           click: (params: { data?: { symbol?: string } }) => {
             const symbol = params.data?.symbol;
