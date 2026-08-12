@@ -177,7 +177,12 @@ export interface PortfolioMetrics {
   /** برای شفافیت: معیارهای نسبتی روی نمونهٔ کوچک قابل اتکا نیستند. */
   sampleAdequate: boolean;
   periodDays: number;
-  totalReturnPct: number;
+  /**
+   * null یعنی هنوز هیچ پوزیشنی باز نشده و منحنی سرمایه‌ای وجود ندارد. عمداً صفر نیست:
+   * «۰٪ بازده» یعنی «معامله کردیم و به جایی نرسیدیم»، در حالی که واقعیت «هنوز شروع نکرده‌ایم»
+   * است — دو چیز کاملاً متفاوت که نباید یک عدد نشان داده شوند.
+   */
+  totalReturnPct: number | null;
   winRatePct: number;
   profitFactor: number;
   expectancy: number;
@@ -219,7 +224,11 @@ export function computePortfolioMetrics(input: PortfolioMetricsInput): Portfolio
       : 0;
 
   const finalEquity = equityPoints.length > 0 ? equityPoints[equityPoints.length - 1].equity : initialCapital;
-  const totalReturnPct = initialCapital > 0 ? (finalEquity / initialCapital - 1) * 100 : 0;
+  const totalReturnPct =
+    equityPoints.length === 0 || initialCapital <= 0 ? null : (finalEquity / initialCapital - 1) * 100;
+  if (totalReturnPct == null) {
+    notes.push("هنوز هیچ پوزیشنی باز نشده — منحنی سرمایه‌ای وجود ندارد و بازده گزارش نمی‌شود (این با «بازده صفر» یکی نیست).");
+  }
 
   const sampleAdequate = raw.length >= MIN_TRADES_FOR_RATIOS;
   if (!sampleAdequate) {

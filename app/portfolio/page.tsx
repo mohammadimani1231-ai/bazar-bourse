@@ -130,8 +130,16 @@ export default async function PortfolioPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-bold">پرتفوی کاغذی</h1>
+        <h1 className="text-lg font-bold">پرتفوی کاغذی (دستی)</h1>
         <p className="text-xs text-muted">ثبت دستی معامله برای پیگیری بدون پول واقعی — هیچ اجرای خودکاری وجود ندارد.</p>
+        <p className="mt-1 text-xs text-muted">
+          این دفتر <strong className="text-foreground">تمرین دستی خودتان</strong> است. راستی‌آزمایی خودکار سیگنال‌های
+          سیستم جدا در{" "}
+          <a href="/track-record" className="text-accent hover:underline">
+            کارنامهٔ عملکرد
+          </a>{" "}
+          نگه‌داری می‌شود — دو جدول مستقل با دو هدف متفاوت؛ هیچ‌کدام روی دیگری اثر نمی‌گذارد.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

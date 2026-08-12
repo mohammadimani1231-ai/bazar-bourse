@@ -6,7 +6,8 @@ import { downsampleToDaily, type TimestampedValue } from "../../../lib/downsampl
 import { buildEqualWeightIndex, type DatedValue } from "../../../lib/syntheticIndex.ts";
 import { detectCorrelationBreaks } from "../../../lib/correlationBreaks.ts";
 import { logReturns } from "../../../lib/stats.ts";
-import { computeRuleStats, type RuleStat } from "../../../lib/ruleStats.ts";
+import { computeRuleStats, type RuleStat, type RuleEvaluationLike } from "../../../lib/ruleStats.ts";
+import { buildRuleReviewReport } from "../../../lib/ruleReview.ts";
 import { computeRawScore, percentileRank } from "../../../lib/composite-rank.ts";
 import { formatFaNumber, formatFaCompactRial, formatFaPercent } from "../../../lib/format.ts";
 import { formatJalaliDay } from "../../../lib/jalali.ts";
@@ -370,6 +371,16 @@ Deno.serve(async () => {
       weekClosedRows.map((t) => vp.outcomeLabels.get(t.id)!.label),
     );
 
+    const ruleReview = buildRuleReviewReport(
+      vp.allTrades.map((t) => ({
+        reasons: Array.isArray(t.signal_reasons) ? (t.signal_reasons as RuleEvaluationLike[]) : [],
+        returnPct: t.return_pct == null ? null : Number(t.return_pct),
+        label: vp.outcomeLabels.get(t.id)?.label ?? null,
+      })),
+      now.toISOString(),
+    );
+    dataSnapshot.rule_review = ruleReview;
+
     dataSnapshot.virtual_portfolio = {
       signals_this_week: weekTrades.length,
       status_counts_this_week: weekStatusCounts,
@@ -382,13 +393,27 @@ Deno.serve(async () => {
       caveats: vp.metrics.notes,
     };
 
+    const virtualIntro = renderReportParagraph(
+      "سیستم سیگنال‌های خودش را با بودجهٔ فرضی اجرا می‌کند تا عملکردشان قابل راستی‌آزمایی باشد. " +
+        "نتایج این بخش هرگز به‌صورت خودکار وزن یا آستانهٔ سیگنال‌ها را تغییر نمی‌دهند.",
+    );
+
+    // حالت خالی صریح: تا وقتی هیچ رکوردی ثبت نشده، جدول‌های پر از صفر ساخته نمی‌شوند —
+    // «۰ معامله با بازده ۰٪» با «هنوز شروع نشده» یکی نیست و نباید شبیه هم دیده شوند.
     sections.push(
-      renderReportSection(
+      vp.allTrades.length === 0
+        ? renderReportSection(
+            "۶. پرتفوی مجازی خودکار",
+            virtualIntro +
+              renderReportParagraph(
+                "هنوز هیچ سیگنالی در پرتفوی مجازی ثبت نشده، پس عددی برای گزارش نیست. " +
+                  "موتور اجرا در ساعات بازار هر ۱۰ دقیقه سیگنال‌های تازه را برمی‌دارد؛ اولین رکوردها بعد از " +
+                  "نخستین جلسهٔ معاملاتی که سیگنال داشته باشد ظاهر می‌شوند. این وضعیت خطا نیست.",
+              ),
+          )
+        : renderReportSection(
         "۶. پرتفوی مجازی خودکار",
-        renderReportParagraph(
-          "سیستم سیگنال‌های خودش را با بودجهٔ فرضی اجرا می‌کند تا عملکردشان قابل راستی‌آزمایی باشد. " +
-            "نتایج این بخش هرگز به‌صورت خودکار وزن یا آستانهٔ سیگنال‌ها را تغییر نمی‌دهند.",
-        ) +
+        virtualIntro +
           renderReportTable(
             [
               { header: "معیار", accessor: (r: { k: string; v: string }) => r.k },
@@ -402,7 +427,7 @@ Deno.serve(async () => {
               })),
               { k: "معاملهٔ بسته‌شده این هفته", v: formatFaNumber(weekClosedRows.length) },
               { k: "میانگین بازده معاملات بستهٔ این هفته", v: weekAvgReturnPct == null ? "—" : formatFaPercent(weekAvgReturnPct, 2) },
-              { k: "بازده از ابتدا", v: formatFaPercent(vp.metrics.totalReturnPct, 2) },
+              { k: "بازده از ابتدا", v: vp.metrics.totalReturnPct == null ? "هنوز پوزیشنی باز نشده" : formatFaPercent(vp.metrics.totalReturnPct, 2) },
               { k: "نرخ برد (از ابتدا)", v: vp.metrics.sampleAdequate ? formatFaPercent(vp.metrics.winRatePct, 1) : "دادهٔ کافی نیست" },
             ],
           ) +
@@ -426,8 +451,23 @@ Deno.serve(async () => {
           ) +
           (vp.metrics.notes.length > 0
             ? renderReportParagraph("محدودیت آماری: " + vp.metrics.notes.join(" "))
-            : ""),
-      ),
+            : "") +
+          // بخش ۶ پرامپت — بازبینی انسان-در-حلقه. فقط پیشنهاد؛ هیچ تغییری اعمال نمی‌شود (قید #۱۴).
+          renderReportParagraph(ruleReview.disclaimer) +
+          renderReportTable(
+            [
+              { header: "قانون", accessor: (r: (typeof ruleReview.rows)[number]) => r.rule },
+              { header: "حضور", accessor: (r: (typeof ruleReview.rows)[number]) => formatFaNumber(r.count) },
+              {
+                header: "نرخ برد",
+                accessor: (r: (typeof ruleReview.rows)[number]) =>
+                  r.adequateSample && r.winRate != null ? formatFaPercent(r.winRate, 1) : "—",
+              },
+              { header: "پیشنهاد برای بررسی انسانی", accessor: (r: (typeof ruleReview.rows)[number]) => r.suggestion },
+            ],
+            ruleReview.rows,
+          ),
+          ),
     );
 
     // ===== ۷. هفتهٔ پیش رو =====

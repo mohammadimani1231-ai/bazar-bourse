@@ -37,6 +37,7 @@ export interface VirtualTradeRow {
   status_note: string | null;
   signal_at: string;
   signal_price: number | null;
+  signal_reasons: unknown;
   signal_tension_gauge: number | null;
   entry_at: string | null;
   entry_price: number | null;
@@ -151,7 +152,7 @@ export async function buildVirtualPortfolioReport(
     const { data } = await client
       .from("virtual_trades")
       .select(
-        "id, signal_id, symbol, status, status_note, signal_at, signal_price, signal_tension_gauge, entry_at, entry_price, share_count, entry_fee, queue_wait_days, exit_at, exit_price, exit_fee, exit_reason, realized_pnl, return_pct",
+        "id, signal_id, symbol, status, status_note, signal_at, signal_price, signal_reasons, signal_tension_gauge, entry_at, entry_price, share_count, entry_fee, queue_wait_days, exit_at, exit_price, exit_fee, exit_reason, realized_pnl, return_pct",
       )
       .order("signal_at", { ascending: true })
       .range(from, to);
@@ -230,8 +231,10 @@ export async function buildVirtualPortfolioReport(
   const avgBuyAndHold =
     buyAndHoldValues.length > 0 ? buyAndHoldValues.reduce((a, b) => a + b, 0) / buyAndHoldValues.length : null;
 
+  // بدون منحنی سرمایه، مقایسه با بنچمارک بی‌معناست (نه اینکه صفر باشد) — جدول خالی می‌ماند
+  // و لایهٔ نمایش «داده‌ای برای این بخش نیست» نشان می‌دهد.
   const benchmarkComparison =
-    calendar.length > 0
+    calendar.length > 0 && metrics.totalReturnPct != null
       ? comparePortfolioToBenchmarks(
           metrics.totalReturnPct,
           calendar[0],

@@ -118,6 +118,12 @@ describe("معیارهای تجمعی پرتفوی", () => {
     expect(metrics.notes.some((n) => n.includes(String(MIN_DAYS_FOR_CAGR)))).toBe(true);
   });
 
+  it("بدون هیچ پوزیشن، بازده null است نه صفر («هنوز شروع نشده» ≠ «بازده صفر»)", () => {
+    const metrics = computePortfolioMetrics({ trades: [], equityPoints: [], initialCapital: 100_000_000 });
+    expect(metrics.totalReturnPct).toBeNull();
+    expect(metrics.notes.some((n) => n.includes("هنوز هیچ پوزیشنی باز نشده"))).toBe(true);
+  });
+
   it("بازده کل از منحنی سرمایه محاسبه می‌شود", () => {
     const metrics = computePortfolioMetrics({
       trades: [evaluateTrade(trade(), {})],
