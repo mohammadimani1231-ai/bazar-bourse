@@ -43,8 +43,10 @@ export function Sidebar() {
               key={link.href}
               href={link.href}
               title={link.label}
-              className={`flex items-center justify-center gap-3 rounded-md px-2 py-2.5 text-sm transition-colors lg:justify-start lg:px-3 ${
-                active ? "bg-accent text-white" : "text-muted hover:bg-surface-2 hover:text-foreground"
+              className={`flex items-center justify-center gap-3 rounded-md border-r-2 px-2 py-2.5 text-sm transition-colors lg:justify-start lg:px-3 ${
+                active
+                  ? "border-warning bg-warning/10 font-bold text-warning"
+                  : "border-transparent font-medium text-muted hover:bg-surface-2 hover:text-foreground"
               }`}
             >
               <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
