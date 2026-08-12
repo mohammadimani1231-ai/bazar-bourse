@@ -12,7 +12,7 @@ export function IndustryRanking({ items }: { items: IndustryFlow[] }) {
   const maxAbs = Math.max(1, ...sorted.map((i) => Math.abs(i.moneyFlow)));
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <h2 className="mb-3 text-sm font-bold">رتبه‌بندی صنایع — ورود پول حقیقی امروز</h2>
       {sorted.length === 0 ? (
         <EmptyState icon={PieChart} title="هنوز داده‌ای ثبت نشده" />

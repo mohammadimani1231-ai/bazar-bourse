@@ -11,7 +11,7 @@ export interface TickerItem {
 
 export function GlobalTickerBar({ items }: { items: TickerItem[] }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border bg-surface">
+    <div className="overflow-x-auto rounded-lg border border-border bg-surface shadow-card">
       <div className="flex min-w-max divide-x divide-x-reverse divide-border">
         {items.map((item) => (
           <div key={item.asset} className="flex flex-col gap-1 px-4 py-3">

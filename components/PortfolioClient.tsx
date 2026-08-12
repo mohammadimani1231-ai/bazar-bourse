@@ -222,7 +222,7 @@ export function PortfolioClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-bold">پوزیشن‌های باز</h2>
           <button
@@ -279,7 +279,7 @@ export function PortfolioClient({
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <h2 className="mb-2 text-sm font-bold">معاملات بسته‌شده</h2>
         {closedPositions.length === 0 ? (
           <EmptyState icon={Briefcase} title="هنوز معامله‌ای بسته نشده" />

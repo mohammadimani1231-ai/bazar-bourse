@@ -13,7 +13,7 @@ export interface NewsItem {
 
 export function NewsFeed({ items }: { items: NewsItem[] }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <h2 className="mb-2 text-sm font-bold">اخبار مرتبط</h2>
       {items.length === 0 ? (
         <EmptyState icon={Newspaper} title="خبری پیدا نشده" description="هنوز خبری با کلیدواژه‌های تعیین‌شده پیدا نشده." />

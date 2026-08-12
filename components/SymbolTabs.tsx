@@ -52,7 +52,7 @@ export function SymbolTabs({
       </div>
 
       {tab === "chart" && (
-        <div className="rounded-lg border border-border bg-surface p-3">
+        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
           <h2 className="mb-2 text-sm font-bold">کندل روزانه</h2>
           {candles.length > 0 ? (
             <>
@@ -69,7 +69,7 @@ export function SymbolTabs({
 
       {tab === "tabloo" && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="rounded-lg border border-border bg-surface p-3">
+          <div className="rounded-lg border border-border bg-surface shadow-card p-3">
             <h2 className="mb-2 text-sm font-bold">سری‌زمانی درون‌روز</h2>
             {intradayPoints.length > 0 ? (
               <IntradayFlowChart points={intradayPoints} />
@@ -82,7 +82,7 @@ export function SymbolTabs({
       )}
 
       {tab === "signals" && (
-        <div className="rounded-lg border border-border bg-surface p-3">
+        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
           <h2 className="mb-2 text-sm font-bold">تاریخچهٔ سیگنال‌ها</h2>
           {signalHistoryItems.length > 0 ? (
             <SignalHistoryList items={signalHistoryItems} />

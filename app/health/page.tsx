@@ -53,7 +53,7 @@ export default async function HealthPage() {
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-bold">سلامت پایپ‌لاین</h1>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <div className="mb-1 flex items-center justify-between text-sm">
           <span className="font-bold">حجم دیتابیس</span>
           <span className="ltr-nums text-muted">
@@ -68,7 +68,7 @@ export default async function HealthPage() {
         </div>
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <h2 className="mb-2 text-sm font-bold">آخرین اجرای هر collector</h2>
         <div className="overflow-x-auto">
         <table className="w-full text-xs">
@@ -103,7 +103,7 @@ export default async function HealthPage() {
         {sources.length === 0 && <EmptyState icon={HeartPulse} title="هنوز داده‌ای در pipeline_health نیست" />}
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <h2 className="mb-2 text-sm font-bold">خطاهای ۲۴ ساعت اخیر</h2>
         {(errorsRaw ?? []).length === 0 ? (
           <p className="text-xs text-muted">در ۲۴ ساعت اخیر خطایی ثبت نشده.</p>

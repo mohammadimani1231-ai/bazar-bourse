@@ -46,7 +46,7 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <h2 className="mb-2 text-sm font-bold">عملکرد هر قانون</h2>
         {stats.length === 0 ? (
           <EmptyState
@@ -79,7 +79,7 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
           </div>
         )}
       </div>
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <h2 className="mb-2 text-sm font-bold">روند score → بازدهی (۵ روزه)</h2>
         {scorePoints.length === 0 ? (
           <EmptyState icon={LineChart} title="هنوز داده‌ای نیست" />

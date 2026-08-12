@@ -56,7 +56,7 @@ export function RiskSettingsForm({ initial }: { initial: RiskSettingsFormValues 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4 rounded-lg border border-border bg-surface p-4">
+    <form onSubmit={handleSubmit} className="flex max-w-md flex-col gap-4 rounded-lg border border-border bg-surface shadow-card p-4">
       <div>
         <label className={labelClass}>کل سرمایهٔ قابل تخصیص (ریال)</label>
         <FormattedNumberInput

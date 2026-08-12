@@ -22,7 +22,7 @@ export default async function BriefsPage() {
         <EmptyState icon={Sparkles} title="هنوز بریفی تولید نشده" />
       ) : (
         (data ?? []).map((row) => (
-          <div key={row.id} className="rounded-lg border border-border bg-surface p-3">
+          <div key={row.id} className="rounded-lg border border-border bg-surface shadow-card p-3">
             <div className="mb-2 flex items-center justify-between">
               <p className="ltr-nums text-xs text-muted">{formatJalaliDateTime(row.created_at)}</p>
               {row.meta && (

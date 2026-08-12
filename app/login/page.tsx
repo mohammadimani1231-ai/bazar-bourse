@@ -11,7 +11,7 @@ export default async function LoginPage({
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
-      <form action={login} className="w-full max-w-xs rounded-lg border border-border bg-surface p-6">
+      <form action={login} className="w-full max-w-xs rounded-lg border border-border bg-surface shadow-card p-6">
         <h1 className="mb-1 text-center text-lg font-bold">بازار بورس</h1>
         <p className="mb-4 text-center text-xs text-muted">این داشبورد شخصی است — برای ورود رمز را وارد کن.</p>
         <input type="hidden" name="next" value={next ?? "/"} />

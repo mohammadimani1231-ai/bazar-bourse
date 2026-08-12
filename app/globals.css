@@ -1,22 +1,33 @@
 @import "tailwindcss";
 
 /*
- * پالت رنگ — الهام از دارک‌مود TradingView: خاکستری تیرهٔ آبی‌مایل، نه سیاه مطلق
- * (بریف بازطراحی ۲۰۲۶-۰۸-۰۵، مرجع: prompts/redesign-visual-language.md).
- * کنتراست چک‌شده: muted روی background ≈ ۵.۳:۱، foreground روی background ≈ ۱۴.۴:۱ (هر دو AA+).
+ * پالت رنگ — نسخهٔ دوم بازطراحی ۲۰۲۶-۰۸-۱۲ («انرژی، نه سردی» — بازخورد مستقیم کاربر که
+ * پس‌زمینه و کارت‌ها عملاً از هم قابل‌تشخیص نبودند). نسخهٔ قبل (۲۰۲۶-۰۸-۰۵) background/surface
+ * را فقط با نسبت روشنایی ۱.۰۳ از هم جدا می‌کرد — یعنی مرز کارت‌ها فقط با خط ۱px دیده می‌شد،
+ * نه با عمق واقعی. اینجا آن نسبت به ۱.۱۶ رسید (surface-2: ۱.۱۸ نسبت به surface) + سایهٔ لایه‌ای
+ * (--shadow-card) اضافه شد تا کارت‌ها واقعاً «بلند شده» از پس‌زمینه به‌نظر برسند.
+ * کنتراست هر جفت با فرمول WCAG محاسبه و بررسی شد (همه AA+، اغلب AAA):
+ * foreground/background=۱۶.۸:۱، foreground/surface=۱۴.۴:۱، muted/background=۷.۳:۱،
+ * muted/surface=۶.۳:۱، warning/background=۸.۹:۱.
  */
 :root {
-  --background: #12141c;
-  --surface: #191c26;
-  --surface-2: #232735;
-  --border: #2b303f;
-  --foreground: #e4e6eb;
-  --muted: #868b98;
+  --background: #0d0f14;
+  --surface: #1b1f29;
+  --surface-2: #262c3a;
+  --border: #333a4d;
+  --foreground: #eef0f4;
+  --muted: #98a0b0;
   --up: #22c55e;
   --down: #ef4444;
   --accent: #6366f1;
-  /* برای برچسب staleness (AsOfBadge) — کنتراست روی background تیره: ~۸.۶:۱ */
+  /* لهجهٔ گرم اصلی رابط — قبلاً فقط برای برچسب staleness بود، حالا نقشش گسترده‌تر است
+     (رتبهٔ برتر اسکرینر، CTA اصلی، آیتم فعال سایدبار). کنتراست روی background: ~۸.۹:۱ */
   --warning: #f59e0b;
+
+  /* سایهٔ کارت‌ها — دارک‌مود واقعی به‌جای drop-shadow معمولی: یک خط نور ظریف بالای کارت
+     (inset) + دو لایهٔ سایهٔ تیره برای عمق نزدیک/دور، به‌جای یک سایهٔ تخت. */
+  --shadow-card: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 1px 2px 0 rgba(0, 0, 0, 0.4),
+    0 10px 24px -8px rgba(0, 0, 0, 0.55);
 }
 
 @theme inline {
@@ -30,6 +41,7 @@
   --color-down: var(--down);
   --color-accent: var(--accent);
   --color-warning: var(--warning);
+  --shadow-card: var(--shadow-card);
   --font-sans: var(--font-vazirmatn);
 }
 

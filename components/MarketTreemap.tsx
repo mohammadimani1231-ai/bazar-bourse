@@ -98,10 +98,12 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
             fontSize: 11,
             fontWeight: "bold" as const,
           },
-          itemStyle: { borderColor: CHART_COLORS.border, borderWidth: 2, gapWidth: 2 },
+          // borderRadius/gap بزرگ‌تر از پیش‌فرض ECharts — باکس‌های نرم‌تر با فاصلهٔ نفس‌کشیدن،
+          // به‌جای بلوک‌های سخت چسبیده به‌هم که در بازخورد کاربر «مثل جدول» دیده می‌شد.
+          itemStyle: { borderColor: CHART_COLORS.border, borderWidth: 2, gapWidth: 3, borderRadius: 4 },
           levels: [
-            { itemStyle: { borderWidth: 0, gapWidth: 2 } },
-            { itemStyle: { borderColor: "var(--background)", borderWidth: 1, gapWidth: 1 } },
+            { itemStyle: { borderWidth: 0, gapWidth: 3, borderRadius: 6 } },
+            { itemStyle: { borderColor: "var(--background)", borderWidth: 2, gapWidth: 2, borderRadius: 4 } },
           ],
           data,
         },
@@ -110,7 +112,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
   }, [items, mode, maxAbsMoneyFlow]);
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-bold">نقشهٔ بازار</h2>
         <div className="flex gap-1 text-xs">

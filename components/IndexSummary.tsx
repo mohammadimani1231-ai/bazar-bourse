@@ -15,19 +15,19 @@ function IndexCard({
   marketOpen: boolean;
 }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <p className="text-xs text-muted">{label}</p>
-      <div className="flex items-baseline gap-2">
-        <p className="ltr-nums text-right text-2xl font-bold">{formatFaNumber(value)}</p>
-        <p
-          className={`ltr-nums text-sm font-bold ${
-            changePct == null ? "text-muted" : changePct >= 0 ? "text-up" : "text-down"
+      <div className="mt-1 flex items-baseline gap-2">
+        <p className="ltr-nums text-right text-3xl font-bold tracking-tight">{formatFaNumber(value)}</p>
+        <span
+          className={`ltr-nums rounded-full px-2 py-0.5 text-xs font-bold ${
+            changePct == null ? "bg-surface-2 text-muted" : changePct >= 0 ? "bg-up/20 text-up" : "bg-down/20 text-down"
           }`}
         >
           {formatFaPercent(changePct)}
-        </p>
+        </span>
       </div>
-      <div className="mt-1">
+      <div className="mt-1.5">
         <AsOfBadge capturedAt={capturedAt} marketOpen={marketOpen} />
       </div>
     </div>
@@ -65,11 +65,11 @@ export function IndexSummary({
         capturedAt={tedpixEqualWeightDate}
         marketOpen={marketOpen}
       />
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         {/* از market_index_quotes (tval زندهٔ BrsApi) — واقعاً کل بازار است، نه فقط واچ‌لیست. */}
         <p className="text-xs text-muted">ارزش معاملات بازار (امروز)</p>
-        <p className="ltr-nums text-right text-2xl font-bold">{formatFaCompactRial(totalMarketValue)}</p>
-        <div className="mt-1">
+        <p className="ltr-nums mt-1 text-right text-3xl font-bold tracking-tight">{formatFaCompactRial(totalMarketValue)}</p>
+        <div className="mt-1.5">
           <AsOfBadge capturedAt={totalMarketValueCapturedAt} marketOpen={marketOpen} />
         </div>
       </div>

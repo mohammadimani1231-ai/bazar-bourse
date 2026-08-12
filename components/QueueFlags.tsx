@@ -39,7 +39,7 @@ export function QueueFlags({ data }: { data: QueueFlagsData }) {
           : "صف بدون تغییر";
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <h2 className="mb-2 text-sm font-bold">وضعیت صف و پرچم‌های امروز</h2>
       <div className="flex flex-wrap gap-2">
         <Badge label="قفل خرید" active={!!data.lockedBuy} unknown={data.lockedBuy == null} />

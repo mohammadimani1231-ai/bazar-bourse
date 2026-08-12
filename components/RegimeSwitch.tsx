@@ -14,7 +14,7 @@ export function RegimeSwitch({ current }: { current: MarketRegime }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="flex items-center justify-between rounded-lg border border-border bg-surface p-3">
+    <div className="flex items-center justify-between rounded-lg border border-border bg-surface shadow-card p-3">
       <span className="text-sm font-bold">رژیم بازار</span>
       <div className="flex gap-1">
         {MARKET_REGIMES.map((regime) => (

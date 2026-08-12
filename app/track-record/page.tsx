@@ -32,7 +32,7 @@ const LABEL_COLOR: Record<OutcomeLabel, string> = {
 
 function Metric({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <p className="text-xs text-muted">{label}</p>
       <p className="ltr-nums mt-1 text-xl font-bold text-foreground">{value}</p>
       {note && <p className="mt-1 text-[11px] text-muted">{note}</p>}
@@ -154,7 +154,7 @@ export default async function TrackRecordPage() {
             />
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4">
+          <section className="rounded-lg border border-border bg-surface shadow-card p-4">
             <h2 className="text-sm font-bold text-foreground">منحنی سرمایه در برابر بنچمارک‌ها</h2>
             <p className="mt-1 text-xs text-muted">
               مارک‌تومارکت واقعی (نقد + ارزش روز پوزیشن‌های باز). بنچمارک‌ها روی همان سرمایهٔ اولیه هم‌مقیاس
@@ -163,7 +163,7 @@ export default async function TrackRecordPage() {
             <div className="mt-3 overflow-x-auto" dangerouslySetInnerHTML={{ __html: chartSvg }} />
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4">
+          <section className="rounded-lg border border-border bg-surface shadow-card p-4">
             <h2 className="text-sm font-bold text-foreground">مقایسه با بنچمارک‌ها</h2>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-sm">
@@ -197,7 +197,7 @@ export default async function TrackRecordPage() {
             </p>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4">
+          <section className="rounded-lg border border-border bg-surface shadow-card p-4">
             <h2 className="text-sm font-bold text-foreground">بازده فرضی سیگنال‌ها در افق‌های ثابت</h2>
             <p className="mt-1 text-xs text-muted">مستقل از خروج واقعی پرتفوی — یعنی «اگر صرفاً نگه می‌داشتیم».</p>
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -216,7 +216,7 @@ export default async function TrackRecordPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4">
+          <section className="rounded-lg border border-border bg-surface shadow-card p-4">
             <h2 className="text-sm font-bold text-foreground">توزیع علت نتیجه</h2>
             <p className="mt-1 text-xs text-muted">
               برچسب‌ها کاملاً عینی و خودکارند (بدون قضاوت هوش مصنوعی). آستانهٔ «شوک بیرونی» پرسنتایلی است، نه عدد ثابت.
@@ -228,7 +228,7 @@ export default async function TrackRecordPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4">
+          <section className="rounded-lg border border-border bg-surface shadow-card p-4">
             <h2 className="text-sm font-bold text-foreground">بازبینی قوانین سیگنال (انسان در حلقه)</h2>
             <p className="mt-1 text-xs text-muted">{review.disclaimer}</p>
             <div className="mt-3 overflow-x-auto">
@@ -271,7 +271,7 @@ export default async function TrackRecordPage() {
             </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-4">
+          <section className="rounded-lg border border-border bg-surface shadow-card p-4">
             <h2 className="text-sm font-bold text-foreground">همهٔ سیگنال‌ها و سرنوشتشان</h2>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-sm">

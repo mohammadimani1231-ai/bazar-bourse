@@ -1,7 +1,7 @@
 function SkeletonBlock({ className = "" }: { className?: string }) {
   return (
     <div
-      className={`animate-pulse motion-reduce:animate-none rounded-lg border border-border bg-surface ${className}`}
+      className={`animate-pulse motion-reduce:animate-none rounded-lg border border-border bg-surface shadow-card ${className}`}
     />
   );
 }

@@ -67,7 +67,7 @@ function PairChart({ pair }: { pair: LeadLagPair }) {
 
 export function LeadLagPanel({ pairs }: { pairs: LeadLagPair[] }) {
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <h2 className="mb-2 text-sm font-bold">تحلیل lead-lag (CCF، لگ ±۱۵ روز)</h2>
       <div className="flex flex-col gap-4">
         {pairs.map((pair) => (

@@ -101,7 +101,7 @@ export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[
   };
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="text-sm font-bold">مقایسهٔ rebase-به-۱۰۰</h2>
         <div className="flex gap-1 text-xs">

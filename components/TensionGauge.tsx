@@ -8,7 +8,7 @@ import { CHART_COLORS } from "@/lib/chartColors.ts";
 export function TensionGauge({ value, capturedAt }: { value: number | null; capturedAt: string | null }) {
   if (value == null) {
     return (
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <h2 className="mb-2 text-sm font-bold">شاخص تنش</h2>
         <p className="text-xs text-muted">هنوز داده‌ای کافی برای محاسبه نیست.</p>
       </div>
@@ -53,7 +53,7 @@ export function TensionGauge({ value, capturedAt }: { value: number | null; capt
   };
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-3">
+    <div className="rounded-lg border border-border bg-surface shadow-card p-3">
       <h2 className="mb-1 text-sm font-bold">شاخص تنش</h2>
       <ReactECharts option={option} style={{ height: 180 }} />
       {capturedAt && (

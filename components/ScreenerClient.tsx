@@ -159,7 +159,7 @@ export function ScreenerClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <div className="flex gap-1 text-sm">
             {(
@@ -305,7 +305,7 @@ export function ScreenerClient({
         )}
       </div>
 
-      <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="text-sm font-bold">نتایج ({formatFaNumber(filtered.length)})</h2>
           <ExportCsvButton getCsv={csv} filename="screener.csv" />

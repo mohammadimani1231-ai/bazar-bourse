@@ -139,7 +139,7 @@ export function PositionSizeSuggestion({ symbol, signalId }: { symbol: string; s
   if (!suggestion) return null;
 
   return (
-    <div className="mt-2 rounded-md border border-border bg-surface p-2">
+    <div className="mt-2 rounded-md border border-border bg-surface shadow-card p-2">
       <p className="mb-1 text-[10px] font-bold text-foreground">اندازه پوزیشن پیشنهادی</p>
       <div className="ltr-nums flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted">
         <span>ورود: {formatFaNumber(suggestion.entryPrice)}</span>

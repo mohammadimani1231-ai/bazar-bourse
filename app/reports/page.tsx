@@ -60,7 +60,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     <div className="flex flex-col gap-4">
       <h1 className="text-lg font-bold">آرشیو گزارش‌ها</h1>
 
-      <form method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface p-3">
+      <form method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface shadow-card p-3">
         <label className="flex flex-col gap-1 text-xs text-muted">
           نوع
           <select name="type" defaultValue={type ?? ""} className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-fg">
@@ -97,7 +97,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             <Link
               key={r.id}
               href={`/reports?id=${r.id}`}
-              className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 hover:bg-surface-2"
+              className="flex items-center justify-between rounded-lg border border-border bg-surface shadow-card p-3 hover:bg-surface-2"
             >
               <div className="flex flex-col gap-1">
                 <p className="text-sm font-bold">{TYPE_LABELS[r.type] ?? r.type}</p>
