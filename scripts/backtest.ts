@@ -20,6 +20,7 @@ import { computeRawScore, percentileRank } from "../lib/composite-rank.ts";
 import { perCapitaBuy, perCapitaSell, buyerPower, moneyFlow, isSuspiciousVolume } from "../lib/tabloo.ts";
 import { evaluateSignal, type SignalContext, type SignalRule } from "../lib/signal-engine.ts";
 import { dailyPctChanges, zScore, computeTensionIndex } from "../lib/tension.ts";
+import { isMaxHoldReached } from "../lib/exitRules.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
@@ -624,7 +625,7 @@ async function main() {
       const idx = dateIndexBySymbol.get(symbol)!.get(date);
       if (idx == null) continue;
       const heldDays = idx - pos.entryIndex;
-      if (heldDays >= MAX_HOLD_DAYS) {
+      if (isMaxHoldReached(heldDays, MAX_HOLD_DAYS)) {
         closePosition(symbol, idx, "max_hold");
       }
     }
