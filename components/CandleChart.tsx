@@ -58,7 +58,10 @@ export function CandleChart({
     const chart = createChart(container, {
       layout: { background: { color: "transparent" }, textColor: CHART_COLORS.muted },
       grid: { vertLines: { color: CHART_COLORS.border }, horzLines: { color: CHART_COLORS.border } },
-      rightPriceScale: { borderColor: CHART_COLORS.border },
+      // پیش‌فرض کتابخانه ~۲۰٪ فاصلهٔ خالی بالای چارت می‌گذارد (برای جای برچسب/واترمارک) — چون
+      // هدر قیمت همین‌جا بالای چارت است و آن فضا را از قبل دارد، کمترش می‌کنیم تا کندل‌ها فضای
+      // بیشتری از canvas را واقعاً پر کنند.
+      rightPriceScale: { borderColor: CHART_COLORS.border, scaleMargins: { top: 0.08, bottom: 0.08 } },
       timeScale: { borderColor: CHART_COLORS.border },
       autoSize: true,
     });

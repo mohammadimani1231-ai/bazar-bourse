@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import { getSupabaseBrowserClient } from "@/lib/supabase/browserClient.ts";
-import { formatJalaliDateTime } from "@/lib/jalali.ts";
+import { formatJalaliDay, formatJalaliDateTime, formatTehranTime } from "@/lib/jalali.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -89,6 +89,19 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
       { header: "تاریخ", accessor: (r) => formatJalaliDateTime(r.createdAt) },
     ]);
 
+  const buyCount = rows.filter((r) => r.direction === "buy").length;
+  const sellCount = rows.filter((r) => r.direction === "sell").length;
+
+  // گروه‌بندی بر اساس روز شمسی — ردیف‌ها از قبل نزولی-زمانی مرتبند (اضافه‌شدهٔ زنده در ابتدا،
+  // initial هم از سرور نزولی می‌آید)، پس یک پیمایش خطی برای شکستن به گروه‌های همان روز کافی است.
+  const groups: { day: string; rows: SignalRow[] }[] = [];
+  for (const row of rows) {
+    const day = formatJalaliDay(row.createdAt);
+    const last = groups[groups.length - 1];
+    if (last && last.day === day) last.rows.push(row);
+    else groups.push({ day, rows: [row] });
+  }
+
   return (
     <div className="rounded-lg border border-border bg-surface p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -98,75 +111,93 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
       {rows.length === 0 ? (
         <EmptyState icon={Zap} title="هنوز سیگنالی ثبت نشده" />
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-border text-muted">
-                <th className="p-2 text-right">نماد</th>
-                <th className="p-2 text-right">جهت</th>
-                <th className="p-2 text-right">score</th>
-                <th className="p-2 text-right">رژیم</th>
-                <th className="p-2 text-right">تاریخ</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => {
-                const triggered = (row.reasons ?? []).filter((r) => r.triggered);
-                const expanded = expandedId === row.id;
-                return (
-                  <Fragment key={row.id}>
-                    <tr
-                      className="cursor-pointer border-b border-border/60 hover:bg-surface-2"
-                      onClick={() => setExpandedId(expanded ? null : row.id)}
-                    >
-                      <td className="p-2">
-                        <Link
-                          href={`/symbol/${encodeURIComponent(row.symbol)}`}
-                          className="text-accent hover:underline"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {row.symbol}
-                        </Link>
-                      </td>
-                      <td className="p-2">
-                        <span
-                          className={`rounded px-2 py-0.5 font-bold ${
-                            row.direction === "buy" ? "bg-up/20 text-up" : "bg-down/20 text-down"
+        <>
+          <p className="ltr-nums mb-2 text-xs text-muted">
+            {formatFaNumber(rows.length, 0)} سیگنال —{" "}
+            <span className="text-up">{formatFaNumber(buyCount, 0)} خرید</span>،{" "}
+            <span className="text-down">{formatFaNumber(sellCount, 0)} فروش</span>
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-muted">
+                  <th className="p-2 text-right">نماد</th>
+                  <th className="p-2 text-right">جهت</th>
+                  <th className="p-2 text-right">score</th>
+                  <th className="p-2 text-right">رژیم</th>
+                  <th className="p-2 text-right">ساعت</th>
+                </tr>
+              </thead>
+              {groups.map((group) => (
+                <tbody key={group.day}>
+                  <tr>
+                    <td colSpan={5} className="ltr-nums bg-surface-2/60 px-2 py-1 text-[11px] font-bold text-muted">
+                      {group.day}
+                    </td>
+                  </tr>
+                  {group.rows.map((row, i) => {
+                    const triggered = (row.reasons ?? []).filter((r) => r.triggered);
+                    const expanded = expandedId === row.id;
+                    return (
+                      <Fragment key={row.id}>
+                        <tr
+                          className={`cursor-pointer border-b border-border/60 hover:bg-surface-2 ${
+                            i % 2 === 1 ? "bg-surface-2/25" : ""
                           }`}
+                          onClick={() => setExpandedId(expanded ? null : row.id)}
                         >
-                          {directionLabel(row.direction)}
-                        </span>
-                      </td>
-                      <td className="ltr-nums p-2 text-right">{formatFaNumber(row.score, 0)}</td>
-                      <td className="p-2 text-muted">{row.regime}</td>
-                      <td className="ltr-nums p-2 text-right text-muted">{formatJalaliDateTime(row.createdAt)}</td>
-                    </tr>
-                    {expanded && (
-                      <tr key={`${row.id}-detail`} className="border-b border-border/60 bg-surface-2/40">
-                        <td colSpan={5} className="p-2">
-                          <div className="mb-2 flex flex-wrap items-center gap-1">
-                            {triggered.length === 0 ? (
-                              <span className="text-muted">فاکتوری trigger نشده</span>
-                            ) : (
-                              triggered.map((t) => (
-                                <span key={t.rule} className="rounded bg-surface px-2 py-0.5">
-                                  {t.rule}{" "}
-                                  <span className="ltr-nums text-muted">({formatFaNumber(t.contribution, 0)})</span>
-                                </span>
-                              ))
-                            )}
-                            <SignalExplainButton reasons={row.reasons} />
-                          </div>
-                          {row.direction === "buy" && <PositionSizeSuggestion symbol={row.symbol} signalId={row.id} />}
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                          <td className="p-2">
+                            <Link
+                              href={`/symbol/${encodeURIComponent(row.symbol)}`}
+                              className="text-accent hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {row.symbol}
+                            </Link>
+                          </td>
+                          <td className="p-2">
+                            <span
+                              className={`rounded px-2 py-0.5 font-bold ${
+                                row.direction === "buy" ? "bg-up/20 text-up" : "bg-down/20 text-down"
+                              }`}
+                            >
+                              {directionLabel(row.direction)}
+                            </span>
+                          </td>
+                          <td className="ltr-nums p-2 text-right">{formatFaNumber(row.score, 0)}</td>
+                          <td className="p-2 text-muted">{row.regime}</td>
+                          <td className="ltr-nums p-2 text-right text-muted">{formatTehranTime(row.createdAt)}</td>
+                        </tr>
+                        {expanded && (
+                          <tr key={`${row.id}-detail`} className="border-b border-border/60 bg-surface-2/40">
+                            <td colSpan={5} className="p-2">
+                              <div className="mb-2 flex flex-wrap items-center gap-1">
+                                {triggered.length === 0 ? (
+                                  <span className="text-muted">فاکتوری trigger نشده</span>
+                                ) : (
+                                  triggered.map((t) => (
+                                    <span key={t.rule} className="rounded bg-surface px-2 py-0.5">
+                                      {t.rule}{" "}
+                                      <span className="ltr-nums text-muted">({formatFaNumber(t.contribution, 0)})</span>
+                                    </span>
+                                  ))
+                                )}
+                                <SignalExplainButton reasons={row.reasons} />
+                              </div>
+                              {row.direction === "buy" && (
+                                <PositionSizeSuggestion symbol={row.symbol} signalId={row.id} />
+                              )}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    );
+                  })}
+                </tbody>
+              ))}
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

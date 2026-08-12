@@ -325,30 +325,42 @@ export function ScreenerClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((row) => (
-                <tr key={row.symbol} className="border-b border-border/60 hover:bg-surface-2">
-                  <td className="p-2">
-                    <Link href={`/symbol/${encodeURIComponent(row.symbol)}`} className="text-accent hover:underline">
-                      {row.symbol}
-                    </Link>
-                    {row.companyName && <p className="text-[11px] text-muted">{row.companyName}</p>}
-                  </td>
-                  <td className="p-2 text-muted">{row.industry}</td>
-                  <td className="ltr-nums p-2 text-right">{formatFaNumber(row.compositeRank)}</td>
-                  <td className="ltr-nums p-2 text-right">{formatFaNumber(row.rsi14)}</td>
-                  <td className="ltr-nums p-2 text-right">{formatFaCompactRial(row.tradeValue)}</td>
-                  <td className="ltr-nums p-2 text-right">{formatFaNumber(row.buyerPower, 2)}</td>
-                  <td className="p-2">
-                    <button
-                      onClick={() => handleAddToWatchlist(row)}
-                      disabled={isPending || addedSymbols.has(row.symbol)}
-                      className="rounded border border-border px-2 py-0.5 text-muted hover:bg-surface-2 disabled:opacity-40"
-                    >
-                      {addedSymbols.has(row.symbol) ? "✓ در واچ‌لیست" : "افزودن به واچ‌لیست"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((row, i) => {
+                // رتبهٔ مرکب خودش پرسنتایلی است (۰-۱۰۰، قید #۴) — «برتر» یعنی دهک بالای همان
+                // توزیع، نه عدد ثابت دلخواه. لهجهٔ گرم فقط اینجا، برای اینکه معنا داشته باشد.
+                const isTopRank = row.compositeRank != null && row.compositeRank >= 90;
+                return (
+                  <tr
+                    key={row.symbol}
+                    className={`border-b border-border/60 hover:bg-surface-2 ${i % 2 === 1 ? "bg-surface-2/25" : ""} ${
+                      isTopRank ? "border-r-2 border-r-warning" : ""
+                    }`}
+                  >
+                    <td className="p-2">
+                      <Link href={`/symbol/${encodeURIComponent(row.symbol)}`} className="text-accent hover:underline">
+                        {row.symbol}
+                      </Link>
+                      {row.companyName && <p className="text-[11px] text-muted">{row.companyName}</p>}
+                    </td>
+                    <td className="p-2 text-muted">{row.industry}</td>
+                    <td className={`ltr-nums p-2 text-right ${isTopRank ? "font-bold text-warning" : ""}`}>
+                      {formatFaNumber(row.compositeRank)}
+                    </td>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(row.rsi14)}</td>
+                    <td className="ltr-nums p-2 text-right">{formatFaCompactRial(row.tradeValue)}</td>
+                    <td className="ltr-nums p-2 text-right">{formatFaNumber(row.buyerPower, 2)}</td>
+                    <td className="p-2">
+                      <button
+                        onClick={() => handleAddToWatchlist(row)}
+                        disabled={isPending || addedSymbols.has(row.symbol)}
+                        className="rounded border border-border px-2 py-0.5 text-muted hover:bg-surface-2 disabled:opacity-40"
+                      >
+                        {addedSymbols.has(row.symbol) ? "✓ در واچ‌لیست" : "افزودن به واچ‌لیست"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           {filtered.length === 0 && <EmptyState icon={SearchX} title="نتیجه‌ای با این فیلترها نیست" />}

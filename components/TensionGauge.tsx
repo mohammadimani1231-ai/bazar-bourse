@@ -36,8 +36,9 @@ export function TensionGauge({ value, capturedAt }: { value: number | null; capt
         },
         pointer: { itemStyle: { color: CHART_COLORS.foreground } },
         axisTick: { show: false },
+        splitNumber: 5,
         splitLine: { length: 10, lineStyle: { color: CHART_COLORS.foreground, width: 2 } },
-        axisLabel: { color: CHART_COLORS.muted, fontSize: 10, distance: 18 },
+        axisLabel: { color: CHART_COLORS.muted, fontSize: 10, distance: 22 },
         detail: {
           valueAnimation: true,
           formatter: (v: number) => formatFaNumber(v, 0),
