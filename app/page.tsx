@@ -58,6 +58,7 @@ export default async function OverviewPage() {
     { data: newsRaw },
     { data: latestBriefRaw },
     { data: holidayRows },
+    { data: indexHistoryRaw },
   ] = await Promise.all([
     supabase.from("global_quotes").select("asset, price, change_pct, captured_at").order("captured_at", { ascending: false }).limit(120),
     // منبع زندهٔ شاخص کل/هم‌وزن/ارزش کل بازار (اصلاح incident collect-tse) — نه benchmark_candles
@@ -76,6 +77,14 @@ export default async function OverviewPage() {
     supabase.from("news_items").select("id, title, source, url, matched_keywords, published_at").order("published_at", { ascending: false }).limit(15),
     supabase.from("ai_briefs").select("brief, input_snapshot, created_at").order("created_at", { ascending: false }).limit(1),
     supabase.from("market_holidays").select("date"),
+    // ~۲۰ روز معاملاتی آخر هر دو شاخص، فقط برای sparkline پس‌زمینهٔ کارت (بازبینی مراجع
+    // جهانی ۲۰۲۶-۰۸-۱۲) — از benchmark_candles که build-candles هر شب زنده پر می‌کند.
+    supabase
+      .from("benchmark_candles")
+      .select("asset, date, close")
+      .in("asset", ["tedpix", "tedpix_equal_weight"])
+      .order("date", { ascending: false })
+      .limit(40),
   ]);
 
   const globalQuotesLatest = latestByKey(globalQuotesRaw ?? [], "asset");
@@ -98,6 +107,13 @@ export default async function OverviewPage() {
     const previous = current - change;
     return previous === 0 ? null : (change / previous) * 100;
   }
+
+  // خودِ کوئری نزولی بود (برای limit روی جدیدترین‌ها)، اینجا برای sparkline صعودی زمانی می‌شود.
+  const indexHistoryAscending = [...(indexHistoryRaw ?? [])].reverse();
+  const tedpixHistory = indexHistoryAscending.filter((r) => r.asset === "tedpix").map((r) => r.close as number | null);
+  const tedpixEqualWeightHistory = indexHistoryAscending
+    .filter((r) => r.asset === "tedpix_equal_weight")
+    .map((r) => r.close as number | null);
 
   const marketIndexLatest = marketIndexRows?.[0] ?? null;
   const tedpixChangePct = pctFromAbsoluteChange(marketIndexLatest?.index_value ?? null, marketIndexLatest?.index_change ?? null);
@@ -178,9 +194,11 @@ export default async function OverviewPage() {
         tedpix={marketIndexLatest?.index_value ?? null}
         tedpixChangePct={tedpixChangePct}
         tedpixDate={marketIndexCapturedAt}
+        tedpixHistory={tedpixHistory}
         tedpixEqualWeight={marketIndexLatest?.index_equal_weight ?? null}
         tedpixEqualWeightChangePct={tedpixEqualWeightChangePct}
         tedpixEqualWeightDate={marketIndexCapturedAt}
+        tedpixEqualWeightHistory={tedpixEqualWeightHistory}
         totalMarketValue={totalMarketValue}
         totalMarketValueCapturedAt={marketIndexCapturedAt}
         marketOpen={marketOpen}
