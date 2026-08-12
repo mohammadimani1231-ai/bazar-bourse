@@ -107,6 +107,7 @@ export default async function ScreenerPage() {
       buyerPower: metrics?.get("buyer_power") ?? null,
       moneyFlow: metrics?.get("money_flow") ?? null,
       suspiciousVolume: metrics?.get("suspicious_volume") == null ? null : metrics.get("suspicious_volume") === 1,
+      recentCloses: (closesBySymbol.get(symbol) ?? []).slice(-20),
     };
   });
 

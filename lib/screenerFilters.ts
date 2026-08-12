@@ -9,6 +9,8 @@ export interface ScreenerRow {
   buyerPower: number | null;
   moneyFlow: number | null;
   suspiciousVolume: boolean | null;
+  /** آخرین ~۲۰ قیمت پایانی تعدیل‌شده، صعودی زمانی — برای اسپارک‌لاین ردیف؛ اختیاری، اگر نبود «—» نشان داده می‌شود. */
+  recentCloses?: number[];
 }
 
 export interface RangeFilter {

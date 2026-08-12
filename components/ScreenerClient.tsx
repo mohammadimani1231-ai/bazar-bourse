@@ -14,6 +14,7 @@ import { toCsv } from "@/lib/csv.ts";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/FilterDropdown";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
 import { EmptyState } from "@/components/EmptyState";
+import { Sparkline } from "@/components/Sparkline";
 import { savePreset, addToWatchlist } from "@/app/screener/actions.ts";
 
 const ALL: FilterDropdownOption = { label: "همه", range: { min: null, max: null } };
@@ -316,6 +317,7 @@ export function ScreenerClient({
             <thead>
               <tr className="border-b border-border text-muted">
                 <th className="p-2 text-right">نماد</th>
+                <th className="p-2 text-right">روند</th>
                 <th className="p-2 text-right">صنعت</th>
                 <th className="p-2 text-right">رتبه مرکب</th>
                 <th className="p-2 text-right">RSI14</th>
@@ -341,6 +343,9 @@ export function ScreenerClient({
                         {row.symbol}
                       </Link>
                       {row.companyName && <p className="text-[11px] text-muted">{row.companyName}</p>}
+                    </td>
+                    <td className="p-2">
+                      <Sparkline values={row.recentCloses ?? []} width={64} height={22} />
                     </td>
                     <td className="p-2 text-muted">{row.industry}</td>
                     <td className={`ltr-nums p-2 text-right ${isTopRank ? "font-bold text-warning" : ""}`}>
