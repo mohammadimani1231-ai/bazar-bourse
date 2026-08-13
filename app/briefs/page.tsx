@@ -17,7 +17,6 @@ export default async function BriefsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold text-shell-text">تحلیل‌های قبلی</h1>
       {(data ?? []).length === 0 ? (
         <div className="rounded-lg border border-border bg-surface shadow-card p-3">
           <EmptyState icon={Sparkles} title="هنوز بریفی تولید نشده" />

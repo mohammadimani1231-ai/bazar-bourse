@@ -30,7 +30,7 @@ export function FilterDropdown({
       <select
         value={selectedIndex === -1 ? 0 : selectedIndex}
         onChange={(e) => onChange(options[Number(e.target.value)].range)}
-        className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground"
+        className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground transition-colors hover:border-accent/50 focus:border-accent focus:outline-none"
       >
         {options.map((o, i) => (
           <option key={i} value={i}>

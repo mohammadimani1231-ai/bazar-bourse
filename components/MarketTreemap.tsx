@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { useRouter } from "next/navigation";
 import { formatFaCompactRial, formatFaPercent } from "@/lib/format.ts";
-import { CHART_COLORS, hexToRgb } from "@/lib/chartColors.ts";
+import { getChartColors, hexToRgb } from "@/lib/chartColors.ts";
+import { useTheme } from "@/components/ThemeProvider";
 
 export interface TreemapItem {
   symbol: string;
@@ -16,22 +17,27 @@ export interface TreemapItem {
 
 type ColorMode = "money_flow" | "change_pct";
 
-const UP = hexToRgb(CHART_COLORS.up);
-const DOWN = hexToRgb(CHART_COLORS.down);
-const NEUTRAL = hexToRgb(CHART_COLORS.neutral);
-
-function mixColor(ratio: number): string {
-  // ratio در بازهٔ [-1,1]، منفی=قرمز، مثبت=سبز، صفر=خاکستری خنثی
-  const clamped = Math.max(-1, Math.min(1, ratio));
-  const target = clamped >= 0 ? UP : DOWN;
-  const t = Math.abs(clamped);
-  const rgb = NEUTRAL.map((n, i) => Math.round(n + (target[i] - n) * t));
-  return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+function makeMixColor(colors: ReturnType<typeof getChartColors>) {
+  const UP = hexToRgb(colors.up);
+  const DOWN = hexToRgb(colors.down);
+  const NEUTRAL = hexToRgb(colors.neutral);
+  // ratio در بازهٔ [-1,1]، منفی=قرمز، مثبت=سبز، صفر=خاکستری خنثی — چون این میان‌یابی RGB در
+  // جاوااسکریپت انجام می‌شود (نه CSS)، به مقدار واقعی HEX تم فعلی نیاز دارد، نه رشتهٔ var().
+  return function mixColor(ratio: number): string {
+    const clamped = Math.max(-1, Math.min(1, ratio));
+    const target = clamped >= 0 ? UP : DOWN;
+    const t = Math.abs(clamped);
+    const rgb = NEUTRAL.map((n, i) => Math.round(n + (target[i] - n) * t));
+    return `rgb(${rgb[0]}, ${rgb[1]}, ${rgb[2]})`;
+  };
 }
 
 export function MarketTreemap({ items }: { items: TreemapItem[] }) {
   const [mode, setMode] = useState<ColorMode>("money_flow");
   const router = useRouter();
+  const { theme } = useTheme();
+  const colors = getChartColors(theme === "dark");
+  const mixColor = useMemo(() => makeMixColor(colors), [theme]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const maxAbsMoneyFlow = useMemo(
     () => Math.max(1, ...items.map((i) => Math.abs(i.moneyFlow ?? 0))),
@@ -50,7 +56,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
 
     const data = [...byIndustry.entries()].map(([industry, symbols]) => ({
       name: industry,
-      itemStyle: { color: CHART_COLORS.surface2 },
+      itemStyle: { color: "var(--surface-2)" },
       children: symbols.map((item) => {
         const ratio = mode === "money_flow" ? (item.moneyFlow ?? 0) / maxAbsMoneyFlow : (item.changePct ?? 0) / 5; // ±۵٪ برای اشباع کامل رنگ
         const inlineMetric = mode === "money_flow" ? formatFaCompactRial(item.moneyFlow) : formatFaPercent(item.changePct);
@@ -85,7 +91,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
           breadcrumb: { show: false },
           leafDepth: 2,
           label: {
-            color: CHART_COLORS.foreground,
+            color: "var(--foreground)",
             fontFamily: "var(--font-vazirmatn)",
             fontSize: 11,
             lineHeight: 15,
@@ -93,7 +99,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
           upperLabel: {
             show: true,
             height: 22,
-            color: CHART_COLORS.muted,
+            color: "var(--muted)",
             fontFamily: "var(--font-vazirmatn)",
             fontSize: 11,
             fontWeight: "bold" as const,
@@ -107,7 +113,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
           },
           // borderRadius/gap بزرگ‌تر از پیش‌فرض ECharts — باکس‌های نرم‌تر با فاصلهٔ نفس‌کشیدن،
           // به‌جای بلوک‌های سخت چسبیده به‌هم که در بازخورد کاربر «مثل جدول» دیده می‌شد.
-          itemStyle: { borderColor: CHART_COLORS.border, borderWidth: 2, gapWidth: 3, borderRadius: 4 },
+          itemStyle: { borderColor: "var(--border)", borderWidth: 2, gapWidth: 3, borderRadius: 4 },
           levels: [
             { itemStyle: { borderWidth: 0, gapWidth: 3, borderRadius: 6 } },
             { itemStyle: { borderColor: "var(--background)", borderWidth: 2, gapWidth: 2, borderRadius: 4 } },
@@ -116,7 +122,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
         },
       ],
     };
-  }, [items, mode, maxAbsMoneyFlow]);
+  }, [items, mode, maxAbsMoneyFlow, mixColor]);
 
   return (
     <div className="rounded-lg border border-border bg-surface shadow-card p-3">
@@ -142,7 +148,7 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
         <div
           className="h-2 flex-1 rounded"
           style={{
-            background: `linear-gradient(to right, ${CHART_COLORS.up}, ${CHART_COLORS.neutral}, ${CHART_COLORS.down})`,
+            background: "linear-gradient(to right, var(--up), var(--surface-2), var(--down))",
           }}
         />
         <span>{mode === "money_flow" ? "بیشترین ورود" : "بیشترین رشد"}</span>

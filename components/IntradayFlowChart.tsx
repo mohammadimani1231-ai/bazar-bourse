@@ -3,7 +3,6 @@
 import ReactECharts from "echarts-for-react";
 import { formatTehranTime } from "@/lib/jalali.ts";
 import { formatFaCompactRial, formatFaNumber } from "@/lib/format.ts";
-import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export interface IntradayPoint {
   capturedAt: string;
@@ -21,14 +20,14 @@ function baseOption(xAxisData: string[], yAxisFormatter: (v: number) => string) 
     xAxis: {
       type: "category",
       data: xAxisData,
-      axisLine: { lineStyle: { color: CHART_COLORS.border } },
-      axisLabel: { color: CHART_COLORS.muted, fontSize: 10 },
+      axisLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--muted)", fontFamily: "var(--font-jetbrains-mono)", fontSize: 10 },
     },
     yAxis: {
       type: "value",
       axisLine: { show: false },
-      splitLine: { lineStyle: { color: CHART_COLORS.border } },
-      axisLabel: { color: CHART_COLORS.muted, fontSize: 10, formatter: yAxisFormatter },
+      splitLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--muted)", fontFamily: "var(--font-jetbrains-mono)", fontSize: 10, formatter: yAxisFormatter },
     },
   };
 }
@@ -44,20 +43,20 @@ export function IntradayFlowChart({ points }: { points: IntradayPoint[] }) {
   const perCapitaOption = {
     ...baseOption(xAxisData, (v) => formatFaNumber(v)),
     tooltip: { trigger: "axis", valueFormatter: (v: number) => formatFaNumber(v) },
-    legend: { data: ["سرانه خرید", "سرانه فروش"], textStyle: { color: CHART_COLORS.muted }, top: 0 },
+    legend: { data: ["سرانه خرید", "سرانه فروش"], textStyle: { color: "var(--muted)" }, top: 0 },
     series: [
       {
         name: "سرانه خرید",
         type: "line",
         data: sorted.map((p) => p.perCapitaBuy),
-        color: CHART_COLORS.up,
+        color: "var(--up)",
         showSymbol: false,
       },
       {
         name: "سرانه فروش",
         type: "line",
         data: sorted.map((p) => p.perCapitaSell),
-        color: CHART_COLORS.down,
+        color: "var(--down)",
         showSymbol: false,
       },
     ],
@@ -71,12 +70,12 @@ export function IntradayFlowChart({ points }: { points: IntradayPoint[] }) {
         name: "قدرت خریدار",
         type: "line",
         data: sorted.map((p) => p.buyerPower),
-        color: CHART_COLORS.accent,
+        color: "var(--accent)",
         showSymbol: false,
         markLine: {
           symbol: "none",
           silent: true,
-          lineStyle: { color: CHART_COLORS.muted, type: "dashed" },
+          lineStyle: { color: "var(--muted)", type: "dashed" },
           data: [{ yAxis: 1 }],
         },
       },
@@ -92,7 +91,7 @@ export function IntradayFlowChart({ points }: { points: IntradayPoint[] }) {
         type: "line",
         data: sorted.map((p) => p.moneyFlow),
         areaStyle: { opacity: 0.15 },
-        color: CHART_COLORS.accent,
+        color: "var(--accent)",
         showSymbol: false,
       },
     ],

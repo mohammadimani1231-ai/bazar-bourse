@@ -26,7 +26,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     if (!report) {
       return (
         <div className="flex flex-col gap-4">
-          <Link href="/reports" className="text-xs text-shell-muted hover:underline">
+          <Link href="/reports" className="text-xs text-muted hover:underline">
             ← بازگشت به آرشیو
           </Link>
           <div className="rounded-lg border border-border bg-surface shadow-card p-3">
@@ -38,7 +38,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     return (
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between print:hidden">
-          <Link href="/reports" className="text-xs text-shell-muted hover:underline">
+          <Link href="/reports" className="text-xs text-muted hover:underline">
             ← بازگشت به آرشیو
           </Link>
           <PrintReportButton />
@@ -60,12 +60,10 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold text-shell-text">آرشیو گزارش‌ها</h1>
-
       <form method="get" className="flex flex-wrap items-end gap-3 rounded-lg border border-border bg-surface shadow-card p-3">
         <label className="flex flex-col gap-1 text-xs text-muted">
           نوع
-          <select name="type" defaultValue={type ?? ""} className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-foreground">
+          <select name="type" defaultValue={type ?? ""} className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-foreground transition-colors hover:border-accent/50 focus:border-accent focus:outline-none">
             <option value="">همه</option>
             <option value="weekly">هفتگی</option>
             <option value="symbol">تک‌نماد</option>
@@ -78,7 +76,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
             name="symbol"
             defaultValue={symbol ?? ""}
             placeholder="مثلا فولاد"
-            className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-foreground"
+            className="rounded border border-border bg-surface-2 px-2 py-1 text-sm text-foreground transition-colors hover:border-accent/50 focus:border-accent focus:outline-none"
           />
         </label>
         <button type="submit" className="rounded border border-border px-3 py-1.5 text-xs font-bold text-foreground hover:bg-surface-2">

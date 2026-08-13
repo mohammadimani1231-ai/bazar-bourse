@@ -191,7 +191,7 @@ export function ScreenerClient({
           </div>
           <div className="mr-auto flex items-center gap-2">
             <select
-              className="rounded-md border border-border bg-surface-2 px-2 py-1 text-xs"
+              className="rounded-md border border-border bg-surface-2 px-2 py-1 text-xs transition-colors hover:border-accent/50 focus:border-accent focus:outline-none"
               onChange={(e) => {
                 const preset = presets.find((p) => String(p.id) === e.target.value);
                 if (preset) handleLoadPreset(preset);
@@ -212,7 +212,7 @@ export function ScreenerClient({
               placeholder="نام preset"
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
-              className="w-28 rounded-md border border-border bg-surface-2 px-2 py-1 text-xs"
+              className="w-28 rounded-md border border-border bg-surface-2 px-2 py-1 text-xs transition-colors hover:border-accent/50 focus:border-accent focus:outline-none"
             />
             <button
               onClick={handleSavePreset}
@@ -223,7 +223,7 @@ export function ScreenerClient({
             </button>
           </div>
         </div>
-        {presetError && <p className="mb-3 text-xs text-red-400">خطا: {presetError}</p>}
+        {presetError && <p className="mb-3 text-xs text-down">خطا: {presetError}</p>}
 
         {tab === "descriptive" && (
           <div className="flex flex-col gap-3">
@@ -295,7 +295,7 @@ export function ScreenerClient({
                 onChange={(e) =>
                   setFilters((f) => ({ ...f, suspiciousVolume: e.target.value as ScreenerFilters["suspiciousVolume"] }))
                 }
-                className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground"
+                className="rounded-md border border-border bg-surface-2 px-2 py-1.5 text-xs text-foreground transition-colors hover:border-accent/50 focus:border-accent focus:outline-none"
               >
                 <option value="any">همه</option>
                 <option value="only">فقط مشکوک</option>
@@ -311,7 +311,7 @@ export function ScreenerClient({
           <h2 className="text-sm font-bold">نتایج ({formatFaNumber(filtered.length)})</h2>
           <ExportCsvButton getCsv={csv} filename="screener.csv" />
         </div>
-        {watchlistError && <p className="mb-2 text-xs text-red-400">خطا: {watchlistError}</p>}
+        {watchlistError && <p className="mb-2 text-xs text-down">خطا: {watchlistError}</p>}
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>

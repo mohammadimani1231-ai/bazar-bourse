@@ -20,7 +20,8 @@ interface RiskSettingsFormValues {
   regime_risk_multiplier: Record<string, number>;
 }
 
-const inputClass = "w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-foreground ltr-nums";
+const inputClass =
+  "w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-foreground ltr-nums transition-colors hover:border-accent/50 focus:border-accent focus:outline-none";
 const labelClass = "mb-1 block text-xs text-muted";
 
 export function RiskSettingsForm({ initial }: { initial: RiskSettingsFormValues }) {

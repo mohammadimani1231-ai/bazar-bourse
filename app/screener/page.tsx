@@ -115,7 +115,6 @@ export default async function ScreenerPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold text-shell-text">اسکرینر</h1>
       <ScreenerClient rows={rows} industries={[...new Set(symbols.map((s) => industryOf.get(s)!))]} presets={presets} />
     </div>
   );

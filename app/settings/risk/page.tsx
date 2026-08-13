@@ -35,12 +35,9 @@ export default async function RiskSettingsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-bold text-shell-text">تنظیمات ریسک</h1>
-        <p className="text-xs text-shell-muted">
-          این ماژول تصمیم نمی‌گیرد، محدود می‌کند — اندازهٔ نهایی معامله همیشه با خودت است.
-        </p>
-      </div>
+      <p className="text-xs text-muted">
+        این ماژول تصمیم نمی‌گیرد، محدود می‌کند — اندازهٔ نهایی معامله همیشه با خودت است.
+      </p>
       <RiskSettingsForm initial={settings} />
     </div>
   );

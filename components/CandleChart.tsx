@@ -9,7 +9,8 @@ import {
   type MouseEventParams,
   type Time,
 } from "lightweight-charts";
-import { CHART_COLORS } from "@/lib/chartColors.ts";
+import { getChartColors } from "@/lib/chartColors.ts";
+import { useTheme } from "@/components/ThemeProvider";
 
 /**
  * قاعدهٔ سخت بازطراحی (prompts/redesign-visual-language.md): چارت‌ها هرگز آینه نمی‌شوند.
@@ -50,28 +51,33 @@ export function CandleChart({
   newsMarkers?: NewsMarker[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const { theme } = useTheme();
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    // lightweight-charts کاملاً canvas-محور است — برخلاف ECharts svg-renderer نمی‌تواند
+    // var(--...) را زمان اجرا بخواند، پس رنگ واقعی تم فعلی را اینجا صریح محاسبه می‌کنیم؛
+    // theme در dependency array یعنی با سوییچ تم، چارت با رنگ درست دوباره ساخته می‌شود.
+    const colors = getChartColors(theme === "dark");
 
     const chart = createChart(container, {
-      layout: { background: { color: "transparent" }, textColor: CHART_COLORS.muted },
-      grid: { vertLines: { color: CHART_COLORS.border }, horzLines: { color: CHART_COLORS.border } },
+      layout: { background: { color: "transparent" }, textColor: colors.muted },
+      grid: { vertLines: { color: colors.border }, horzLines: { color: colors.border } },
       // پیش‌فرض کتابخانه ~۲۰٪ فاصلهٔ خالی بالای چارت می‌گذارد (برای جای برچسب/واترمارک) — چون
       // هدر قیمت همین‌جا بالای چارت است و آن فضا را از قبل دارد، کمترش می‌کنیم تا کندل‌ها فضای
       // بیشتری از canvas را واقعاً پر کنند.
-      rightPriceScale: { borderColor: CHART_COLORS.border, scaleMargins: { top: 0.08, bottom: 0.08 } },
-      timeScale: { borderColor: CHART_COLORS.border },
+      rightPriceScale: { borderColor: colors.border, scaleMargins: { top: 0.08, bottom: 0.08 } },
+      timeScale: { borderColor: colors.border },
       autoSize: true,
     });
 
     const series = chart.addSeries(CandlestickSeries, {
-      upColor: CHART_COLORS.up,
-      downColor: CHART_COLORS.down,
+      upColor: colors.up,
+      downColor: colors.down,
       borderVisible: false,
-      wickUpColor: CHART_COLORS.up,
-      wickDownColor: CHART_COLORS.down,
+      wickUpColor: colors.up,
+      wickDownColor: colors.down,
     });
 
     const data = candles
@@ -88,7 +94,7 @@ export function CandleChart({
     const signalMarkerList = signalMarkers.map((m) => ({
       time: toTimestamp(m.date),
       position: (m.direction === "sell" ? "aboveBar" : "belowBar") as "aboveBar" | "belowBar",
-      color: m.direction === "sell" ? CHART_COLORS.down : CHART_COLORS.up,
+      color: m.direction === "sell" ? colors.down : colors.up,
       shape: (m.direction === "sell" ? "arrowDown" : "arrowUp") as "arrowDown" | "arrowUp",
     }));
 
@@ -98,7 +104,7 @@ export function CandleChart({
     const newsMarkerList = [...newsByTime.entries()].map(([time, n]) => ({
       time: time as UTCTimestamp,
       position: "aboveBar" as const,
-      color: CHART_COLORS.accent,
+      color: colors.accent,
       shape: "circle" as const,
       text: "خبر",
       size: 0.6,
@@ -121,7 +127,7 @@ export function CandleChart({
       chart.unsubscribeClick(clickHandler);
       chart.remove();
     };
-  }, [candles, signalMarkers, newsMarkers]);
+  }, [candles, signalMarkers, newsMarkers, theme]);
 
   return <div ref={containerRef} style={{ height: 420, width: "100%" }} />;
 }

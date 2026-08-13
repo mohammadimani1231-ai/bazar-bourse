@@ -1,6 +1,13 @@
 /**
  * چارت‌های SVG سمت سرور برای گزارش‌های ذخیره‌شده (فاز ۷) — بدون هیچ وابستگی جدید و بدون
  * نیاز به JS کلاینتی، چون گزارش یک رشتهٔ HTML ثابت است که باید روی کاغذ هم درست چاپ شود.
+ *
+ * رنگ‌ها/فونت‌ها از var(--...) استفاده می‌کنند نه هگز ثابت — چون این SVG همیشه به‌صورت
+ * dangerouslySetInnerHTML داخل صفحهٔ زندهٔ اپ (app/reports/page.tsx) تزریق می‌شود، پس به
+ * app/globals.css و توکن‌های next/font همان صفحه دسترسی دارد (تم روشن/تاریک را هم خودکار
+ * دنبال می‌کند). طبق design_handoff_dashboard_redesign: برچسب‌های فارسی با Vazirmatn،
+ * مقادیر عددی با JetBrains Mono — قبلاً هر دو Tahoma بودند (باگ واقعی، رجوع به CLAUDE.md
+ * بخش «سه incident»).
  */
 
 export interface BarDatum {
@@ -8,9 +15,8 @@ export interface BarDatum {
   value: number;
 }
 
-const UP_COLOR = "#22c55e";
-const DOWN_COLOR = "#ef4444";
-const AXIS_COLOR = "#6b7280";
+const FONT_SANS = "var(--font-vazirmatn), Tahoma, sans-serif";
+const FONT_MONO = "var(--font-jetbrains-mono), var(--font-vazirmatn), monospace";
 
 function escapeXml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -24,11 +30,11 @@ export function renderBarChartSvg(
 ): string {
   const width = options.width ?? 480;
   const rowHeight = options.rowHeight ?? 28;
-  const labelWidth = options.labelWidth ?? 90;
+  const labelWidth = options.labelWidth ?? 110;
   const valueFormatter = options.valueFormatter ?? ((v: number) => v.toFixed(0));
 
   if (data.length === 0) {
-    return `<svg width="${width}" height="40" xmlns="http://www.w3.org/2000/svg"><text x="8" y="24" font-size="12" fill="${AXIS_COLOR}">داده‌ای نیست</text></svg>`;
+    return `<svg width="${width}" height="40" xmlns="http://www.w3.org/2000/svg"><text x="8" y="24" font-family="${FONT_SANS}" font-size="12" fill="var(--muted)">داده‌ای نیست</text></svg>`;
   }
 
   const maxAbs = Math.max(1, ...data.map((d) => Math.abs(d.value)));
@@ -41,19 +47,19 @@ export function renderBarChartSvg(
       const y = i * rowHeight + 5;
       const barWidth = (Math.abs(d.value) / maxAbs) * (plotWidth / 2);
       const x = d.value >= 0 ? centerX : centerX - barWidth;
-      const color = d.value >= 0 ? UP_COLOR : DOWN_COLOR;
+      const color = d.value >= 0 ? "var(--up)" : "var(--down)";
       const valueX = d.value >= 0 ? centerX + barWidth + 6 : centerX - barWidth - 6;
       const valueAnchor = d.value >= 0 ? "start" : "end";
       return `
-        <text x="${labelWidth - 8}" y="${y + rowHeight / 2 + 4}" font-size="11" fill="#e8e8ec" text-anchor="end">${escapeXml(d.label)}</text>
+        <text x="${labelWidth - 8}" y="${y + rowHeight / 2 + 4}" font-family="${FONT_SANS}" font-size="11" fill="var(--foreground)" text-anchor="end">${escapeXml(d.label)}</text>
         <rect x="${x}" y="${y}" width="${Math.max(1, barWidth)}" height="${rowHeight - 8}" fill="${color}" rx="2" />
-        <text x="${valueX}" y="${y + rowHeight / 2 + 4}" font-size="10" fill="${AXIS_COLOR}" text-anchor="${valueAnchor}">${escapeXml(valueFormatter(d.value))}</text>
+        <text x="${valueX}" y="${y + rowHeight / 2 + 4}" font-family="${FONT_MONO}" font-size="10" fill="var(--muted)" text-anchor="${valueAnchor}">${escapeXml(valueFormatter(d.value))}</text>
       `;
     })
     .join("");
 
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Tahoma, sans-serif">
-    <line x1="${centerX}" y1="0" x2="${centerX}" y2="${height}" stroke="${AXIS_COLOR}" stroke-width="1" />
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <line x1="${centerX}" y1="0" x2="${centerX}" y2="${height}" stroke="var(--border)" stroke-width="1" />
     ${bars}
   </svg>`;
 }
@@ -67,12 +73,12 @@ export interface LinePoint {
 export function renderLineChartSvg(points: LinePoint[], options: { width?: number; height?: number; color?: string } = {}): string {
   const width = options.width ?? 480;
   const height = options.height ?? 120;
-  const color = options.color ?? "#6366f1";
+  const color = options.color ?? "var(--accent)";
   const padding = 20;
 
   const validPoints = points.filter((p) => Number.isFinite(p.y));
   if (validPoints.length < 2) {
-    return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><text x="8" y="${height / 2}" font-size="12" fill="${AXIS_COLOR}">داده‌ای کافی نیست</text></svg>`;
+    return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><text x="8" y="${height / 2}" font-family="${FONT_SANS}" font-size="12" fill="var(--muted)">داده‌ای کافی نیست</text></svg>`;
   }
 
   const values = validPoints.map((p) => p.y);
@@ -92,10 +98,10 @@ export function renderLineChartSvg(points: LinePoint[], options: { width?: numbe
   const firstLabel = validPoints[0].x;
   const lastLabel = validPoints[validPoints.length - 1].x;
 
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Tahoma, sans-serif">
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     <path d="${pathD}" fill="none" stroke="${color}" stroke-width="2" />
-    <text x="${padding}" y="${height - 4}" font-size="10" fill="${AXIS_COLOR}">${escapeXml(firstLabel)}</text>
-    <text x="${width - padding}" y="${height - 4}" font-size="10" fill="${AXIS_COLOR}" text-anchor="end">${escapeXml(lastLabel)}</text>
+    <text x="${padding}" y="${height - 4}" font-family="${FONT_MONO}" font-size="10" fill="var(--muted)">${escapeXml(firstLabel)}</text>
+    <text x="${width - padding}" y="${height - 4}" font-family="${FONT_MONO}" font-size="10" fill="var(--muted)" text-anchor="end">${escapeXml(lastLabel)}</text>
   </svg>`;
 }
 
@@ -120,7 +126,7 @@ export function renderMultiLineChartSvg(
 
   const usable = series.filter((s) => s.points.filter((p) => Number.isFinite(p.y)).length >= 2);
   if (usable.length === 0) {
-    return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><text x="8" y="${height / 2}" font-size="12" fill="${AXIS_COLOR}">داده‌ای کافی نیست</text></svg>`;
+    return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg"><text x="8" y="${height / 2}" font-family="${FONT_SANS}" font-size="12" fill="var(--muted)">داده‌ای کافی نیست</text></svg>`;
   }
 
   const allValues = usable.flatMap((s) => s.points.map((p) => p.y)).filter((v) => Number.isFinite(v));
@@ -148,17 +154,17 @@ export function renderMultiLineChartSvg(
     .map((s, i) => {
       const x = padding + i * 150;
       const y = height - 4;
-      return `<rect x="${x}" y="${y - 8}" width="10" height="3" fill="${s.color}" /><text x="${x + 14}" y="${y}" font-size="10" fill="${AXIS_COLOR}">${escapeXml(s.label)}</text>`;
+      return `<rect x="${x}" y="${y - 8}" width="10" height="3" fill="${s.color}" /><text x="${x + 14}" y="${y}" font-family="${FONT_SANS}" font-size="10" fill="var(--muted)">${escapeXml(s.label)}</text>`;
     })
     .join("");
 
   const first = usable[0].points[0]?.x ?? "";
   const last = usable[0].points[usable[0].points.length - 1]?.x ?? "";
 
-  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg" font-family="Tahoma, sans-serif">
+  return `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
     ${paths}
-    <text x="${padding}" y="${padding + plotHeight + 12}" font-size="10" fill="${AXIS_COLOR}">${escapeXml(first)}</text>
-    <text x="${width - padding}" y="${padding + plotHeight + 12}" font-size="10" fill="${AXIS_COLOR}" text-anchor="end">${escapeXml(last)}</text>
+    <text x="${padding}" y="${padding + plotHeight + 12}" font-family="${FONT_MONO}" font-size="10" fill="var(--muted)">${escapeXml(first)}</text>
+    <text x="${width - padding}" y="${padding + plotHeight + 12}" font-family="${FONT_MONO}" font-size="10" fill="var(--muted)" text-anchor="end">${escapeXml(last)}</text>
     ${legend}
   </svg>`;
 }

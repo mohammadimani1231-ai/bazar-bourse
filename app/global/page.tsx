@@ -85,12 +85,15 @@ export default async function GlobalPage() {
   const refineryIndex = buildEqualWeightIndex(refineryCloses);
   const metalsIndex = buildEqualWeightIndex(metalsCloses);
 
+  // رنگ‌های سری غیرمعنایی (accent/series2..5) — نه up/down، چون این خطوط جهت رشد/افت
+  // قیمت را نشان نمی‌دهند، فقط هویت سری‌اند (قاعدهٔ سخت design_handoff). قبلاً «دلار آزاد»
+  // سبز و «DXY» قرمز هاردکد بودند که دقیقاً همین قاعده را نقض می‌کرد.
   const rebaseSeries: SeriesInput[] = [
-    { name: "شاخص کل", color: "#6366f1", points: tedpix },
-    { name: "برنت", color: "#f59e0b", points: brent },
-    { name: "انس طلا", color: "#eab308", points: goldOunce },
-    { name: "دلار آزاد", color: "#22c55e", points: usdIrr },
-    { name: "DXY", color: "#ef4444", points: dxy },
+    { name: "شاخص کل", color: "var(--accent)", points: tedpix },
+    { name: "برنت", color: "var(--series2)", points: brent },
+    { name: "انس طلا", color: "var(--series5)", points: goldOunce },
+    { name: "دلار آزاد", color: "var(--series3)", points: usdIrr },
+    { name: "DXY", color: "var(--series4)", points: dxy },
   ];
 
   const heatmapAssets: AssetSeries[] = [
@@ -120,11 +123,10 @@ export default async function GlobalPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-bold text-shell-text">نمای جهانی</h1>
       <RebaseChart series={rebaseSeries} newsMarkers={newsMarkers} />
       <CorrelationHeatmap assets={heatmapAssets} />
       <LeadLagPanel pairs={leadLagPairs} />
-      <p className="text-[11px] text-shell-muted">
+      <p className="text-[11px] text-muted">
         برنت/انس طلا/DXY از منبع global_quotes می‌آیند که به‌تازگی فعال شده — تا چند هفتهٔ آینده که
         تاریخچهٔ بیشتری جمع شود، نمودارهای بالا کامل‌تر می‌شوند.
       </p>

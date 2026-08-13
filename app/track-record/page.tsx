@@ -46,10 +46,10 @@ export default async function TrackRecordPage() {
   const { metrics } = report;
 
   const chartSvg = renderMultiLineChartSvg([
-    { label: "پرتفوی مجازی", color: "#6366f1", points: report.equityPoints.map((p) => ({ x: p.date, y: p.equity })) },
+    { label: "پرتفوی مجازی", color: "var(--accent)", points: report.equityPoints.map((p) => ({ x: p.date, y: p.equity })) },
     ...report.benchmarkCurves.map((c, i) => ({
       label: c.label,
-      color: i === 0 ? "#94a3b8" : "#64748b",
+      color: i === 0 ? "var(--series2)" : "var(--series3)",
       points: c.points.map((p) => ({ x: p.date, y: p.equity })),
     })),
   ]);
@@ -65,16 +65,15 @@ export default async function TrackRecordPage() {
   const review = buildRuleReviewReport(reviewInputs, new Date().toISOString());
 
   return (
-    <main className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 lg:p-6">
-      <header>
-        <h1 className="text-2xl font-bold text-shell-text">کارنامهٔ عملکرد پرتفوی مجازی</h1>
-        <p className="mt-1 text-sm text-shell-muted">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+      <div>
+        <p className="mt-1 text-sm text-muted">
           سیستم سیگنال‌های خودش را با بودجهٔ فرضی {formatFaNumber(report.initialCapital)} تومان اجرا می‌کند و نتیجه را
           بدون دستکاری اینجا نشان می‌دهد. این صفحه ابزار اعتمادسازی است، نه تبلیغ — اگر عملکرد بد بود، همان‌طور
           نمایش داده می‌شود. نتایج این پرتفوی هرگز به‌صورت خودکار وزن یا آستانهٔ سیگنال‌ها را تغییر نمی‌دهند.
         </p>
-        <p className="mt-2 text-xs text-shell-muted">
-          این دفتر <strong className="text-shell-text">کاملاً خودکار</strong> است و کاملاً از دفتر معاملات دستی شما در{" "}
+        <p className="mt-2 text-xs text-muted">
+          این دفتر <strong className="text-foreground">کاملاً خودکار</strong> است و کاملاً از دفتر معاملات دستی شما در{" "}
           <a href="/portfolio" className="text-accent hover:underline">
             صفحهٔ پرتفوی
           </a>{" "}
@@ -82,11 +81,11 @@ export default async function TrackRecordPage() {
           روی دیگری اثر نمی‌گذارد.
         </p>
         {report.startedAt && (
-          <p className="ltr-nums mt-1 text-xs text-shell-muted">
+          <p className="ltr-nums mt-1 text-xs text-muted">
             شروع فعالیت: {formatJalaliDay(report.startedAt + "T00:00:00Z")} · {formatFaNumber(metrics.periodDays)} روز
           </p>
         )}
-      </header>
+      </div>
 
       {!hasData ? (
         <div className="rounded-lg border border-border bg-surface shadow-card p-3">
@@ -318,6 +317,6 @@ export default async function TrackRecordPage() {
           </section>
         </>
       )}
-    </main>
+    </div>
   );
 }

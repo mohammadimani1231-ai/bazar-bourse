@@ -3,7 +3,6 @@
 import ReactECharts from "echarts-for-react";
 import { LineChart } from "lucide-react";
 import { formatFaNumber, formatFaPercent } from "@/lib/format.ts";
-import { CHART_COLORS } from "@/lib/chartColors.ts";
 import { EmptyState } from "@/components/EmptyState";
 import type { RuleStat } from "@/lib/ruleStats.ts";
 
@@ -24,22 +23,22 @@ export function RulePerformance({ stats, scorePoints }: { stats: RuleStat[]; sco
       name: "score",
       nameLocation: "middle",
       nameGap: 28,
-      axisLine: { lineStyle: { color: CHART_COLORS.border } },
-      axisLabel: { color: CHART_COLORS.muted, formatter: (v: number) => formatFaNumber(v) },
-      splitLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--muted)", fontFamily: "var(--font-jetbrains-mono)", formatter: (v: number) => formatFaNumber(v) },
+      splitLine: { lineStyle: { color: "var(--border)" } },
     },
     yAxis: {
       name: "بازده ۵روزه (٪)",
-      axisLine: { lineStyle: { color: CHART_COLORS.border } },
-      axisLabel: { color: CHART_COLORS.muted, formatter: (v: number) => formatFaNumber(v) },
-      splitLine: { lineStyle: { color: CHART_COLORS.border } },
+      axisLine: { lineStyle: { color: "var(--border)" } },
+      axisLabel: { color: "var(--muted)", fontFamily: "var(--font-jetbrains-mono)", formatter: (v: number) => formatFaNumber(v) },
+      splitLine: { lineStyle: { color: "var(--border)" } },
     },
     series: [
       {
         type: "scatter",
         symbolSize: 8,
         data: scorePoints.map((p) => [p.score, p.returnPct]),
-        itemStyle: { color: CHART_COLORS.accent, opacity: 0.7 },
+        itemStyle: { color: "var(--accent)", opacity: 0.7 },
       },
     ],
   };

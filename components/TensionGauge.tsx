@@ -3,7 +3,6 @@
 import ReactECharts from "echarts-for-react";
 import { formatFaNumber } from "@/lib/format.ts";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
-import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 export function TensionGauge({ value, capturedAt }: { value: number | null; capturedAt: string | null }) {
   if (value == null) {
@@ -28,30 +27,30 @@ export function TensionGauge({ value, capturedAt }: { value: number | null; capt
           lineStyle: {
             width: 14,
             color: [
-              [0.35, CHART_COLORS.up],
-              [0.65, CHART_COLORS.warning],
-              [1, CHART_COLORS.down],
+              [0.35, "var(--up)"],
+              [0.65, "var(--warning)"],
+              [1, "var(--down)"],
             ],
           },
         },
-        pointer: { itemStyle: { color: CHART_COLORS.foreground } },
+        pointer: { itemStyle: { color: "var(--foreground)" } },
         axisTick: { show: false },
         splitNumber: 5,
-        splitLine: { length: 10, lineStyle: { color: CHART_COLORS.foreground, width: 2 } },
+        splitLine: { length: 10, lineStyle: { color: "var(--foreground)", width: 2 } },
         axisLabel: {
-          color: CHART_COLORS.muted,
+          color: "var(--muted)",
           fontSize: 10,
           distance: 22,
-          fontFamily: "var(--font-vazirmatn)",
+          fontFamily: "var(--font-jetbrains-mono)",
           formatter: (v: number) => formatFaNumber(v, 0),
         },
         detail: {
           valueAnimation: true,
           formatter: (v: number) => formatFaNumber(v, 0),
-          color: CHART_COLORS.foreground,
+          color: "var(--foreground)",
           fontSize: 22,
           fontWeight: "bold",
-          fontFamily: "var(--font-vazirmatn)",
+          fontFamily: "var(--font-jetbrains-mono)",
           offsetCenter: [0, "60%"],
         },
         data: [{ value }],

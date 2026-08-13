@@ -3,7 +3,8 @@
 import { useMemo, useState } from "react";
 import ReactECharts from "echarts-for-react";
 import { logReturns, pearsonCorrelation } from "@/lib/stats.ts";
-import { CHART_COLORS } from "@/lib/chartColors.ts";
+import { getChartColors } from "@/lib/chartColors.ts";
+import { useTheme } from "@/components/ThemeProvider";
 
 export interface AssetSeries {
   name: string;
@@ -28,6 +29,10 @@ function alignedLogReturns(a: AssetSeries, b: AssetSeries, window: number): [num
 
 export function CorrelationHeatmap({ assets }: { assets: AssetSeries[] }) {
   const [window, setWindow] = useState<(typeof WINDOWS)[number]>(30);
+  const { theme } = useTheme();
+  // visualMap.inRange خودِ ECharts باید بین این سه رنگ عددی interpolate کند (نه CSS) — پس به
+  // HEX واقعیِ تم فعلی نیاز دارد، نه رشتهٔ var().
+  const chartColors = getChartColors(theme === "dark");
 
   const { data, insufficientCount } = useMemo(() => {
     const cells: [number, number, number | null][] = [];
@@ -64,13 +69,13 @@ export function CorrelationHeatmap({ assets }: { assets: AssetSeries[] }) {
     xAxis: {
       type: "category",
       data: assets.map((a) => a.name),
-      axisLabel: { color: CHART_COLORS.muted, rotate: 45 },
+      axisLabel: { color: "var(--muted)", fontFamily: "var(--font-vazirmatn)", rotate: 45 },
       splitArea: { show: true },
     },
     yAxis: {
       type: "category",
       data: assets.map((a) => a.name),
-      axisLabel: { color: CHART_COLORS.muted },
+      axisLabel: { color: "var(--muted)", fontFamily: "var(--font-vazirmatn)" },
       splitArea: { show: true },
     },
     visualMap: {
@@ -80,8 +85,9 @@ export function CorrelationHeatmap({ assets }: { assets: AssetSeries[] }) {
       orient: "horizontal",
       left: "center",
       bottom: 0,
-      textStyle: { color: CHART_COLORS.muted },
-      inRange: { color: [CHART_COLORS.down, CHART_COLORS.surface2, CHART_COLORS.up] },
+      textStyle: { color: "var(--muted)", fontFamily: "var(--font-jetbrains-mono)" },
+      // این آرایه خودِ ECharts باید عددی interpolate کند، پس HEX واقعی لازم است نه var().
+      inRange: { color: [chartColors.down, chartColors.surface2, chartColors.up] },
     },
     series: [
       {

@@ -1,51 +1,71 @@
 @import "tailwindcss";
 
 /*
- * پالت رنگ — نسخهٔ سوم بازطراحی ۲۰۲۶-۰۸-۱۲ («هیبرید» — تصمیم صریح کاربر بعد از دیدن
- * TrendSpider/Trade Ideas: پوستهٔ تیره (سایدبار، بنر رژیم، پس‌زمینهٔ صفحه) می‌ماند، ولی
- * کارت‌های محتوا (که ~۹۵٪ سطح واقعی سایت‌اند) روشن می‌شوند — کاربر صریح گفت پس‌زمینهٔ
- * مشکی/خاکستری تیرهٔ همه‌جا برایش «بی‌روح» است؛ نسخهٔ دوم (همین امروز، عمق+سایه روی همان
- * پالت تیره) این را حل نکرد چون خودِ رنگ پایه هنوز تیره بود، نه فقط کمبود عمق.
+ * پالت رنگ — بازطراحی ۲۰۲۶-۰۸-۱۳ طبق پکیج Handoff رسمی («design_handoff_dashboard_redesign/»،
+ * CLAUDE.md ریشهٔ ریپو خلاصهٔ قوانینش را نگه می‌دارد). این نسخهٔ قبلی (هیبرید پوستهٔ تیره +
+ * کارت روشن، ۲۰۲۶-۰۸-۱۲) را به‌طور کامل جایگزین می‌کند — دیگر پوستهٔ تیرهٔ ثابت نداریم؛ حالا
+ * یک سیستم توکن واحد (روشن پیش‌فرض + تاریک اختیاری) که همه‌جا از سایدبار تا کارت‌ها یکسان است.
  *
- * دو خانوادهٔ توکن جداست چون یک توکن مشترک نمی‌تواند هم روی پوستهٔ تیره خوانا باشد هم روی
- * کارت روشن: «shell» (پیشوند صریح) فقط در Sidebar.tsx و RegimeBanner.tsx استفاده می‌شود؛
- * بقیهٔ ~۴۵ فایل که از قبل bg-surface/border-border/text-foreground/text-muted دارند
- * دست‌نخورده ماندند و خودکار مقدار روشن جدید را می‌گیرند.
- *
- * رنگ‌های معنایی (up/down/warning) برای خوانایی روی هر دو زمینه با فرمول WCAG بازتنظیم شدند
- * (اسکریپت جدا اجرا شد، نه حدس): down/warning روی سفید ≥AA (۴.۸:۱ و ۵:۱)، up عمداً کمی زیر
- * ۴.۵ نگه داشته شد (۳.۳:۱) چون همیشه bold و کنار چیپ رنگی می‌آید، در ازایش روی پوستهٔ تیره
- * (بنر رژیم/سابدار) ۵.۸:۱ می‌ماند. accent دست‌نخورده ماند چون از قبل هر دو زمینه را
- * (۴.۵:۱ روی سفید، ۴.۳:۱ روی تیره) پوشش می‌داد.
+ * فرمول‌های oklch عیناً از design_handoff_dashboard_redesign/Dashboard.dc.html (مرجع
+ * high-fidelity، نه حدسی) کپی شدند — هیو accent=227 (آبی)، up=155 (سبز)، down=27 (قرمز).
+ * نام‌های Tailwind قدیمی (surface/surface-2/foreground/muted/background/border) عمداً حفظ
+ * شدند تا ~۵۰ فایل موجود که از این کلاس‌ها استفاده می‌کنند بدون ادیت خودکار مقدار جدید بگیرند؛
+ * فقط مقدارشان عوض شده، نه اسمشان. نگاشت: background=bg، surface=panel، surface-2=panel2،
+ * foreground=text، muted=text-dim.
  */
 :root {
-  /* پوسته — فقط Sidebar.tsx و RegimeBanner.tsx */
-  --background: #0d0f14;
-  --shell-text: #eef0f4;
-  --shell-muted: #98a0b0;
-  --shell-border: #262b3a;
+  --background: oklch(0.975 0.004 250);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.955 0.008 250);
+  --border: oklch(0.90 0.007 250);
+  --foreground: oklch(0.20 0.01 250);
+  --muted: oklch(0.46 0.01 250);
 
-  /* کارت — همه‌جای دیگر */
-  --surface: #ffffff;
-  --surface-2: #f2f3f6;
-  --border: #e3e5eb;
-  --foreground: #15171e;
-  --muted: #6b7280;
+  --accent: oklch(0.56 0.20 227);
+  --accent-soft: oklch(0.56 0.20 227 / 0.14);
+  --up: oklch(0.58 0.18 155);
+  --down: oklch(0.58 0.22 27);
+  --series2: oklch(0.56 0.17 282); /* هیو accent+55 — رنگ‌بندی دسته‌ای/غیرمعنایی نمودارها، هرگز up/down */
+  --series3: oklch(0.56 0.17 157); /* هیو accent+290 */
+  /* series4/series5: افزودهٔ Claude Code — README فقط ۲ رنگ سری اضافه تعریف کرده بود ولی
+     نمودار rebase نمای جهانی ۵ سری هم‌زمان دارد (شاخص کل/برنت/انس‌طلا/دلار‌آزاد/DXY)؛ قبلاً
+     دلار‌آزاد سبز و DXY قرمز هاردکد بودند — دقیقاً همان نقض «up/down فقط برای رشد/افت قیمت»
+     که README هشدار داده. هیو دستی انتخاب شد (نه فرمول +hue) تا از هیو up(155)/down(27) فاصله
+     بگیرد، نه چون قاعدهٔ oklch را دور می‌زند. */
+  --series4: oklch(0.56 0.17 320);
+  --series5: oklch(0.58 0.16 60);
 
-  --up: #16a34a;
-  --down: #dc2626;
-  --accent: #6366f1;
-  --warning: #b45309;
+  /* warning: پیشنهاد Claude Code، چون README پکیج توکنی برای این معنا ندارد (فقط
+     up/down/accent/series2/series3) — برای نشانهٔ «داده کهنه» (AsOfBadge) لازم است، هیو کهربایی
+     هماهنگ با همان فرمول oklch بقیهٔ سیستم، هارمونیک با accent/up/down. */
+  --warning: oklch(0.55 0.15 75);
 
-  /* سایهٔ کارت روشن — drop-shadow نرم خاکستری، نه inset نوری (که مخصوص کارت تیرهٔ نسخهٔ قبل بود). */
-  --shadow-card: 0 1px 2px 0 rgba(15, 23, 42, 0.06), 0 10px 24px -8px rgba(15, 23, 42, 0.16);
+  /* شعاع/سایه طبق README: کارت‌ها فقط بوردر دارند، بدون shadow (flat) — شعاع ۱۴px. */
+  --radius-card: 14px;
+  --shadow-card: none;
+}
+
+:root[data-theme="dark"] {
+  --background: oklch(0.17 0.008 250);
+  --surface: oklch(0.22 0.009 250);
+  --surface-2: oklch(0.27 0.011 250);
+  --border: oklch(0.34 0.012 250);
+  --foreground: oklch(0.96 0.003 250);
+  --muted: oklch(0.70 0.008 250);
+
+  --accent: oklch(0.68 0.19 227);
+  --accent-soft: oklch(0.68 0.19 227 / 0.14);
+  --up: oklch(0.74 0.19 155);
+  --down: oklch(0.68 0.22 27);
+  --series2: oklch(0.72 0.16 282);
+  --series3: oklch(0.72 0.16 157);
+  --series4: oklch(0.72 0.16 320);
+  --series5: oklch(0.74 0.15 60);
+  --warning: oklch(0.75 0.15 75);
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-shell-text: var(--shell-text);
-  --color-shell-muted: var(--shell-muted);
-  --color-shell-border: var(--shell-border);
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
   --color-border: var(--border);
@@ -54,14 +74,20 @@
   --color-up: var(--up);
   --color-down: var(--down);
   --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-series2: var(--series2);
+  --color-series3: var(--series3);
+  --color-series4: var(--series4);
+  --color-series5: var(--series5);
   --color-warning: var(--warning);
   --shadow-card: var(--shadow-card);
+  /* rounded-lg سیتوایدترین کلاس گوشه‌گرد کارت‌هاست (۵۴ مورد در ۲۷ فایل) — override می‌کنیم به
+     ۱۴px مطابق README به‌جای گشتن تک‌تک فایل‌ها. */
+  --radius-lg: var(--radius-card);
   --font-sans: var(--font-vazirmatn);
+  --font-mono: var(--font-jetbrains-mono), var(--font-vazirmatn), monospace;
 }
 
-/* پس‌زمینهٔ body پوسته (تیره) است؛ رنگ متن پیش‌فرض foreground کارت (تیره‌روی‌روشن) چون
-   تقریباً هر متن بدون کلاس صریح داخل یک کارت روشن می‌نشیند، نه مستقیم روی پوسته — تنها دو
-   استثنا (Sidebar، RegimeBanner) هر عنصرشان رنگ صریح shell-* دارد، پس به این پیش‌فرض وابسته نیستند. */
 body {
   background: var(--background);
   color: var(--foreground);
@@ -72,8 +98,6 @@ body {
   color: white;
 }
 
-/* حلقهٔ فوکوس صریح برای پیمایش کیبورد — بدون این، روی تم تیره ممکن است outline پیش‌فرض
-   مرورگر دیده نشود. فقط با :focus-visible (کیبورد)، نه کلیک ماوس. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
@@ -81,12 +105,15 @@ body {
 }
 
 /*
- * اعداد و چارت‌ها همیشه LTR باشند حتی داخل صفحهٔ RTL (قاعدهٔ سخت بازطراحی — هرگز آینه نشوند).
- * tabular-nums هم اضافه شد: ارقام هم‌عرض، طوری‌که در ستون‌های جدول هنگام تغییر عدد
- * (قیمت زنده، RSI و...) عرض ستون نلرزد — الگوی TradingView.
+ * اعداد و چارت‌ها همیشه LTR باشند حتی داخل صفحهٔ RTL (قاعدهٔ سخت بازطراحی — هرگز آینه نشوند،
+ * CLAUDE.md #۱۲). فونت اعداد طبق پکیج Handoff: JetBrains Mono. رقم فارسی (۰-۹ عربی-هندی) در
+ * این فونت گلیف ندارد؛ فallback زنجیره‌ای (JetBrains Mono → Vazirmatn → monospace) یعنی خود
+ * ارقام لاتین/نماد٪/جداکنندهٔ هزارگان با JetBrains Mono رندر می‌شوند ولی گلیف رقم فارسی به‌طور
+ * خودکار (per-glyph fallback مرورگر) از Vazirmatn گرفته می‌شود — نه یک فونت سیستمی نامشخص.
  */
 .ltr-nums {
   direction: ltr;
   unicode-bidi: isolate;
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
 }

@@ -30,7 +30,7 @@ export function GenerateSymbolReportButton({ symbol }: { symbol: string }) {
       >
         {isPending ? "در حال تولید گزارش…" : "تولید گزارش عمیق نماد"}
       </button>
-      {error && <p className="text-[11px] text-red-400">خطا: {error}</p>}
+      {error && <p className="text-[11px] text-down">خطا: {error}</p>}
     </div>
   );
 }
