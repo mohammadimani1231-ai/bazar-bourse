@@ -6,9 +6,8 @@ import { atr } from "../../../lib/indicators.ts";
 import { calculatePositionSize, suggestStopLossFromAtr } from "../../../lib/position-sizing.ts";
 import {
   decideBuyExecution,
+  decideSellExecution,
   shouldExpirePending,
-  realizedPnl,
-  sellProceeds,
   isQuoteFromToday,
 } from "../../../lib/virtualExecution.ts";
 import { decideExit } from "../../../lib/exitRules.ts";
@@ -336,25 +335,29 @@ Deno.serve(async () => {
       });
       if (reason == null) continue;
 
-      if (queueState(q).lockedSell === true) {
-        // در صف فروش قفل نمی‌شود فروخت — پوزیشن باز می‌ماند، فقط علتش ثبت می‌شود.
-        await client
-          .from("virtual_trades")
-          .update({ status_note: `خروج (${reason}) به دلیل قفل صف فروش انجام نشد`, updated_at: nowIso })
-          .eq("id", pos.id);
-        actions.push(`${pos.symbol}: خروج مسدود (صف فروش)`);
-        continue;
-      }
-
       const shareCount = Number(pos.share_count);
-      const result = realizedPnl({
+      const exitDecision = decideSellExecution({
         shareCount,
         entryPrice: Number(pos.entry_price),
         exitPrice: q.last_price,
         buyFeePct,
         sellFeePct,
+        exitReason: reason,
+        queue: queueState(q),
       });
-      cash += sellProceeds(shareCount, q.last_price, sellFeePct).net;
+
+      if (exitDecision.status === "blocked_locked_sell") {
+        // در صف فروش قفل نمی‌شود فروخت — پوزیشن باز می‌ماند، فقط علتش ثبت می‌شود. status
+        // دست‌نخورده می‌ماند تا سیکل بعدی همین ردیف را دوباره از decideExit رد کند.
+        await client
+          .from("virtual_trades")
+          .update({ status_note: exitDecision.note, updated_at: nowIso })
+          .eq("id", pos.id);
+        actions.push(`${pos.symbol}: خروج مسدود (صف فروش)`);
+        continue;
+      }
+
+      cash += exitDecision.sellNet!;
 
       await client
         .from("virtual_trades")
@@ -363,16 +366,16 @@ Deno.serve(async () => {
           status_note: null,
           exit_at: nowIso,
           exit_price: q.last_price,
-          exit_fee: result.exitFee,
+          exit_fee: exitDecision.exitFee,
           exit_reason: reason,
-          realized_pnl: result.pnl,
-          return_pct: result.returnPct,
+          realized_pnl: exitDecision.pnl,
+          return_pct: exitDecision.returnPct,
           updated_at: nowIso,
         })
         .eq("id", pos.id);
 
       openPositions.splice(openPositions.indexOf(pos), 1);
-      actions.push(`${pos.symbol}: closed (${reason}، ${result.returnPct.toFixed(2)}٪)`);
+      actions.push(`${pos.symbol}: closed (${reason}، ${exitDecision.returnPct!.toFixed(2)}٪)`);
     }
 
     // ── ۳. سیگنال‌های خرید جدید ───────────────────────────────────────────────

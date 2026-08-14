@@ -1,5 +1,6 @@
 import type { QueueState } from "./tabloo.ts";
 import { tehranDayBounds } from "./time/tehranDay.ts";
+import type { ExitReason } from "./exitRules.ts";
 
 /**
  * منطق خالص اجرای مجازی سفارش‌ها (پرتفوی مجازی خودکار — قانون #۱۴ CLAUDE.md).
@@ -128,6 +129,64 @@ export function decideBuyExecution(input: VirtualExecutionInput): VirtualExecuti
   }
 
   return { status: "executed", shareCount, grossValue: gross, fee, totalCost: net, note: "اجرا شد" };
+}
+
+export type SellExecutionStatus = "closed" | "blocked_locked_sell";
+
+export interface SellExecutionInput {
+  shareCount: number;
+  entryPrice: number;
+  exitPrice: number;
+  buyFeePct: number;
+  sellFeePct: number;
+  exitReason: ExitReason;
+  queue: Pick<QueueState, "lockedSell">;
+}
+
+export interface SellExecutionDecision {
+  status: SellExecutionStatus;
+  note: string;
+  pnl: number | null;
+  returnPct: number | null;
+  entryFee: number | null;
+  exitFee: number | null;
+  /** خالص دریافتی فروش (برای افزودن به cash) — فقط وقتی status==="closed" مقدار دارد. */
+  sellNet: number | null;
+}
+
+/**
+ * تصمیم اجرای خروج (حد ضرر/سیگنال فروش/سقف نگه‌داری — هر سه یکسان) — هم‌ساختار با
+ * decideBuyExecution بالا، همان قاعدهٔ صف: اگر صف فروش قفل باشد اصلاً اجرا نمی‌شود
+ * (نمی‌شود در صف فروخت)، پوزیشن باز می‌ماند. execute-virtual-trades در این حالت status
+ * ردیف را دست‌نخورده می‌گذارد، پس سیکل بعدی خودش دوباره امتحان می‌کند — نیازی به شمارندهٔ
+ * انقضا نیست (برخلاف صف خرید که shouldExpirePending دارد؛ این تفاوت عمدی است، رجوع به
+ * CLAUDE.md).
+ */
+export function decideSellExecution(input: SellExecutionInput): SellExecutionDecision {
+  const { shareCount, entryPrice, exitPrice, buyFeePct, sellFeePct, exitReason, queue } = input;
+
+  if (queue.lockedSell === true) {
+    return {
+      status: "blocked_locked_sell",
+      note: `خروج (${exitReason}) به دلیل قفل صف فروش انجام نشد`,
+      pnl: null,
+      returnPct: null,
+      entryFee: null,
+      exitFee: null,
+      sellNet: null,
+    };
+  }
+
+  const result = realizedPnl({ shareCount, entryPrice, exitPrice, buyFeePct, sellFeePct });
+  return {
+    status: "closed",
+    note: "اجرا شد",
+    pnl: result.pnl,
+    returnPct: result.returnPct,
+    entryFee: result.entryFee,
+    exitFee: result.exitFee,
+    sellNet: sellProceeds(shareCount, exitPrice, sellFeePct).net,
+  };
 }
 
 /**

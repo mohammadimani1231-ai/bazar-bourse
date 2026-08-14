@@ -4,10 +4,12 @@ import {
   sellProceeds,
   maxAffordableShares,
   decideBuyExecution,
+  decideSellExecution,
   shouldExpirePending,
   realizedPnl,
   isQuoteFromToday,
   type VirtualExecutionInput,
+  type SellExecutionInput,
 } from "./virtualExecution.ts";
 
 const BUY_FEE = 0.37;
@@ -22,6 +24,19 @@ function baseInput(overrides: Partial<VirtualExecutionInput> = {}): VirtualExecu
     price: 10_000,
     buyFeePct: BUY_FEE,
     queue: { lockedBuy: false },
+    ...overrides,
+  };
+}
+
+function baseSellInput(overrides: Partial<SellExecutionInput> = {}): SellExecutionInput {
+  return {
+    shareCount: 1000,
+    entryPrice: 10_000,
+    exitPrice: 10_500,
+    buyFeePct: BUY_FEE,
+    sellFeePct: SELL_FEE,
+    exitReason: "stop_loss",
+    queue: { lockedSell: false },
     ...overrides,
   };
 }
@@ -120,6 +135,42 @@ describe("مدل صف", () => {
     expect(shouldExpirePending(2, 3)).toBe(false);
     expect(shouldExpirePending(3, 3)).toBe(true);
     expect(shouldExpirePending(4, 3)).toBe(true);
+  });
+});
+
+describe("تصمیم اجرای خروج (decideSellExecution)", () => {
+  it("صف فروش باز → بسته می‌شود با سود/زیان محاسبه‌شده", () => {
+    const decision = decideSellExecution(baseSellInput());
+    expect(decision.status).toBe("closed");
+    const expected = realizedPnl({
+      shareCount: 1000,
+      entryPrice: 10_000,
+      exitPrice: 10_500,
+      buyFeePct: BUY_FEE,
+      sellFeePct: SELL_FEE,
+    });
+    expect(decision.pnl).toBeCloseTo(expected.pnl, 6);
+    expect(decision.returnPct).toBeCloseTo(expected.returnPct, 6);
+    expect(decision.exitFee).toBeCloseTo(expected.exitFee, 6);
+    expect(decision.sellNet).toBeCloseTo(sellProceeds(1000, 10_500, SELL_FEE).net, 6);
+  });
+
+  it("قفل صف فروش → اجرا نمی‌شود، نه رد قطعی (پوزیشن باز می‌ماند)", () => {
+    const decision = decideSellExecution(baseSellInput({ queue: { lockedSell: true } }));
+    expect(decision.status).toBe("blocked_locked_sell");
+    expect(decision.pnl).toBeNull();
+    expect(decision.sellNet).toBeNull();
+    expect(decision.note).toContain("قفل صف فروش");
+  });
+
+  it("علت خروج در پیام مسدودشدن ذکر می‌شود", () => {
+    const decision = decideSellExecution(baseSellInput({ queue: { lockedSell: true }, exitReason: "max_hold" }));
+    expect(decision.note).toContain("max_hold");
+  });
+
+  it("وضعیت نامعلوم صف (null) مانع اجرا نیست", () => {
+    const decision = decideSellExecution(baseSellInput({ queue: { lockedSell: null } }));
+    expect(decision.status).toBe("closed");
   });
 });
 
