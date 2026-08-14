@@ -1,4 +1,5 @@
 import type { MarketRegime } from "./marketRegime.ts";
+import { DAILY_PRICE_BAND_PCT } from "./marketRules.ts";
 
 export interface PositionSizingInput {
   capital: number;
@@ -8,7 +9,7 @@ export interface PositionSizingInput {
   regime: MarketRegime;
   regimeMultiplier: Record<string, number>;
   maxSinglePositionPct: number;
-  /** دامنهٔ نوسان مجاز یک جلسهٔ معاملاتی، درصد؛ پیش‌فرض ۵٪ (استاندارد بورس تهران). */
+  /** دامنهٔ نوسان مجاز یک جلسهٔ معاملاتی، درصد؛ پیش‌فرض از DAILY_PRICE_BAND_PCT (lib/marketRules.ts). */
   bandPct?: number;
   /** از lib/tabloo.ts::queueState روی آخرین quote زندهٔ نماد — اختیاری چون همیشه در دسترس نیست. */
   queueLocked?: { buy: boolean | null; sell: boolean | null };
@@ -21,7 +22,7 @@ export interface PositionSizingResult {
   warnings: string[];
 }
 
-const DEFAULT_BAND_PCT = 5;
+const DEFAULT_BAND_PCT = DAILY_PRICE_BAND_PCT;
 
 /**
  * اندازهٔ پوزیشن را «محدود» می‌کند، تصمیم نمی‌گیرد (اصل طراحی فاز ۸). ریسک مجاز تومانی از
