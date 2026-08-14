@@ -3,6 +3,7 @@ import { formatFaNumber, formatFaPercent } from "@/lib/format.ts";
 import { formatJalaliDay } from "@/lib/jalali.ts";
 import { renderLineChartSvg, type LinePoint } from "@/lib/reportCharts.ts";
 import { PortfolioClient, type ClosePositionRow, type OpenPositionRow } from "@/components/PortfolioClient";
+import { StatTile } from "@/components/StatTile";
 
 export const dynamic = "force-dynamic";
 
@@ -105,6 +106,8 @@ export default async function PortfolioPage() {
 
   const totalOpenValue = openPositions.reduce((sum, p) => sum + p.positionValue, 0);
   const totalOpenPct = totalCapital && totalCapital > 0 ? (totalOpenValue / totalCapital) * 100 : null;
+  // جمع همان unrealizedPnl ای که PortfolioClient روی هر ردیف برای رنگ‌آمیزی می‌خواند — تجمیع، نه محاسبهٔ جدید
+  const totalUnrealizedPnl = openPositions.reduce((sum, p) => sum + (p.unrealizedPnl ?? 0), 0);
 
   const sectorMap = new Map<string, number>();
   for (const p of openPositions) {
@@ -126,6 +129,8 @@ export default async function PortfolioPage() {
     return acc;
   }, []);
   const equityCurveSvg = equityCurvePoints.length >= 2 ? renderLineChartSvg(equityCurvePoints, { width: 600, height: 160 }) : null;
+  // آخرین نقطهٔ همان reduce بالا — سود/زیان تحقق‌شدهٔ تجمعی، نه محاسبهٔ جدید
+  const totalRealizedPnl = equityCurvePoints.length > 0 ? equityCurvePoints[equityCurvePoints.length - 1].y : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -141,23 +146,13 @@ export default async function PortfolioPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-          <p className="text-xs text-muted">پوزیشن‌های باز</p>
-          <p className="ltr-nums text-right text-lg font-bold">{openPositions.length}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-          <p className="text-xs text-muted">ارزش پوزیشن‌های باز</p>
-          <p className="ltr-nums text-right text-lg font-bold">{formatFaNumber(totalOpenValue)}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-          <p className="text-xs text-muted">درصد سرمایهٔ درگیر</p>
-          <p className="ltr-nums text-right text-lg font-bold">{totalOpenPct == null ? "—" : formatFaPercent(totalOpenPct)}</p>
-        </div>
-        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-          <p className="text-xs text-muted">معاملات بسته‌شده</p>
-          <p className="ltr-nums text-right text-lg font-bold">{closedPositions.length}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <StatTile label="پوزیشن‌های باز" value={formatFaNumber(openPositions.length)} />
+        <StatTile label="ارزش پوزیشن‌های باز" value={formatFaNumber(totalOpenValue)} />
+        <StatTile label="درصد سرمایهٔ درگیر" value={totalOpenPct == null ? "—" : formatFaPercent(totalOpenPct)} />
+        <StatTile label="معاملات بسته‌شده" value={formatFaNumber(closedPositions.length)} />
+        <StatTile label="سود/زیان تحقق‌نیافتهٔ کل" value={formatFaNumber(totalUnrealizedPnl)} />
+        <StatTile label="سود/زیان تحقق‌شدهٔ کل" value={formatFaNumber(totalRealizedPnl)} />
       </div>
 
       {sectorRows.length > 0 && (
