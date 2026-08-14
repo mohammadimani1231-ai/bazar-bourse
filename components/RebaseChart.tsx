@@ -56,15 +56,33 @@ export function RebaseChart({ series, newsMarkers = [] }: { series: SeriesInput[
     const chartSeries = sliced.map((s, i) => {
       const base = s.points[0]?.value;
       const byDate = new Map(s.points.map((p) => [p.date, p.value]));
+      const rebasedDates = dates.filter((d) => byDate.get(d) != null && base);
+      const lastRebasedDate = rebasedDates[rebasedDates.length - 1];
       return {
         name: s.name,
         type: "line" as const,
         showSymbol: false,
         color: s.color,
+        // بخش ۳ اسپک: خط ۲px با join/cap گرد، area fill تخت ~۱۰٪ opacity رنگ خودِ سری.
+        lineStyle: { width: 2, cap: "round" as const, join: "round" as const },
+        areaStyle: { opacity: 0.1 },
         data: dates.map((d) => {
           const v = byDate.get(d);
           return v == null || !base ? null : Number(((v / base) * 100).toFixed(2));
         }),
+        // Marker/end-dot: فقط روی آخرین نقطهٔ واقعیِ هر سری (نه هر نقطه — showSymbol همچنان
+        // false است) — طبق «لیبل/مارکر مستقیم فقط روی نقطهٔ انتهایی یا اکسترمم».
+        ...(lastRebasedDate
+          ? {
+              markPoint: {
+                symbol: "circle",
+                symbolSize: 8,
+                itemStyle: { color: s.color, borderColor: "var(--surface)", borderWidth: 2 },
+                label: { show: false },
+                data: [{ coord: [formatJalaliDay(lastRebasedDate + "T00:00:00Z"), byDate.get(lastRebasedDate)! / base! * 100] }],
+              },
+            }
+          : {}),
         ...(i === 0 && markLineData.length > 0
           ? { markLine: { symbol: "none", data: markLineData, silent: false } }
           : {}),

@@ -5,6 +5,7 @@ import ReactECharts from "echarts-for-react";
 import { useRouter } from "next/navigation";
 import { formatFaCompactRial, formatFaPercent } from "@/lib/format.ts";
 import { getChartColors, hexToRgb } from "@/lib/chartColors.ts";
+import { heatmapStepVar } from "@/lib/heatmapScale.ts";
 import { useTheme } from "@/components/ThemeProvider";
 
 export interface TreemapItem {
@@ -58,12 +59,16 @@ export function MarketTreemap({ items }: { items: TreemapItem[] }) {
       name: industry,
       itemStyle: { color: "var(--surface-2)" },
       children: symbols.map((item) => {
-        const ratio = mode === "money_flow" ? (item.moneyFlow ?? 0) / maxAbsMoneyFlow : (item.changePct ?? 0) / 5; // ±۵٪ برای اشباع کامل رنگ
         const inlineMetric = mode === "money_flow" ? formatFaCompactRial(item.moneyFlow) : formatFaPercent(item.changePct);
+        // «تغییر قیمت» طبق بخش ۲ dataviz-spec یک مقیاس diverging ۹پلهٔ گسسته است (نه بلند
+        // پیوسته) — مرزهای درصدی مشخص (خنثی/ضعیف/متوسط/شدید)، بر خلاف «ورود پول حقیقی» که
+        // چنین آستانه‌ای در اسپک نداشت و همچنان با میان‌یابی پیوسته رنگ می‌شود.
+        const color =
+          mode === "change_pct" ? heatmapStepVar(item.changePct) : mixColor((item.moneyFlow ?? 0) / maxAbsMoneyFlow);
         return {
           name: `${item.symbol}\n${inlineMetric}`,
           value: item.tradeValue,
-          itemStyle: { color: mixColor(ratio) },
+          itemStyle: { color },
           symbol: item.symbol,
           industry: item.industry,
           moneyFlow: item.moneyFlow,

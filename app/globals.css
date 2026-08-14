@@ -54,6 +54,23 @@
   /* شعاع/سایه طبق README: کارت‌ها فقط بوردر دارند، بدون shadow (flat) — شعاع ۱۴px. */
   --radius-card: 14px;
   --shadow-card: none;
+
+  /*
+   * مقیاس diverging ۹پله‌ای نقشهٔ بازار — بخش ۲ bazar-bourse-dataviz-spec.md، مقادیر عیناً
+   * validate‌شده (محاسبهٔ OKLab، نه چشمی) — دست‌نخورده نگه داشته شدند. فایل فقط یک ست مقدار
+   * داد (بدون نسخهٔ جدای روشن/تاریک، بر خلاف بخش ۱) — چون بخش ۲ صریحاً برای دارک‌مود validate
+   * شده، همین مقادیر را در هر دو تم استفاده می‌کنیم (تصمیم Claude Code، نه چیزی که اسپک گفته باشد).
+   * مرزهای درصدی که این ۹ پله را انتخاب می‌کنند در lib/heatmapScale.ts هستند، نه اینجا.
+   */
+  --heat-0: #4c4c4c;
+  --heat-neg-1: #6d3e3c;
+  --heat-neg-2: #9a3f3f;
+  --heat-neg-3: #c73a41;
+  --heat-neg-4: #f23645;
+  --heat-pos-1: #4c6b5e;
+  --heat-pos-2: #488f74;
+  --heat-pos-3: #34ad86;
+  --heat-pos-4: #00c896;
 }
 
 :root[data-theme="dark"] {
@@ -90,6 +107,15 @@
   --color-down: var(--down);
   --color-up-text: var(--up-text);
   --color-down-text: var(--down-text);
+  --color-heat-0: var(--heat-0);
+  --color-heat-neg-1: var(--heat-neg-1);
+  --color-heat-neg-2: var(--heat-neg-2);
+  --color-heat-neg-3: var(--heat-neg-3);
+  --color-heat-neg-4: var(--heat-neg-4);
+  --color-heat-pos-1: var(--heat-pos-1);
+  --color-heat-pos-2: var(--heat-pos-2);
+  --color-heat-pos-3: var(--heat-pos-3);
+  --color-heat-pos-4: var(--heat-pos-4);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-series2: var(--series2);

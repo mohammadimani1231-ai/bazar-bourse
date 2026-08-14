@@ -11,6 +11,7 @@ import {
 } from "lightweight-charts";
 import { getChartColors } from "@/lib/chartColors.ts";
 import { useTheme } from "@/components/ThemeProvider";
+import { formatFaNumber } from "@/lib/format.ts";
 
 /**
  * قاعدهٔ سخت بازطراحی (prompts/redesign-visual-language.md): چارت‌ها هرگز آینه نمی‌شوند.
@@ -51,6 +52,7 @@ export function CandleChart({
   newsMarkers?: NewsMarker[];
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const legendRef = useRef<HTMLDivElement>(null);
   const { theme } = useTheme();
 
   useEffect(() => {
@@ -121,13 +123,47 @@ export function CandleChart({
     };
     chart.subscribeClick(clickHandler);
 
+    // بخش ۴ اسپک: «Hover: کراس‌هیر + تول‌تیپ OHLC کامل» — کراس‌هیر خودِ کتابخانه پیش‌فرض
+    // فعال است، ولی تول‌تیپ OHLC نبود؛ چون lightweight-charts (برخلاف ECharts) تول‌تیپ
+    // built-in ندارد، این legend را دستی با subscribeCrosshairMove می‌سازیم — الگوی رسمی
+    // خودِ مستندات کتابخانه برای این دقیقاً همین سناریو.
+    const crosshairHandler = (param: MouseEventParams<Time>) => {
+      const legend = legendRef.current;
+      if (!legend) return;
+      const bar = param.seriesData.get(series) as { open: number; high: number; low: number; close: number } | undefined;
+      if (!param.time || !bar) {
+        legend.style.visibility = "hidden";
+        return;
+      }
+      legend.style.visibility = "visible";
+      const isUp = bar.close >= bar.open;
+      const color = isUp ? colors.up : colors.down;
+      legend.innerHTML = `
+        <span style="color:${colors.muted}">O</span> <span style="color:${color}">${formatFaNumber(bar.open)}</span>
+        <span style="color:${colors.muted}">H</span> <span style="color:${color}">${formatFaNumber(bar.high)}</span>
+        <span style="color:${colors.muted}">L</span> <span style="color:${color}">${formatFaNumber(bar.low)}</span>
+        <span style="color:${colors.muted}">C</span> <span style="color:${color}">${formatFaNumber(bar.close)}</span>
+      `;
+    };
+    chart.subscribeCrosshairMove(crosshairHandler);
+
     chart.timeScale().fitContent();
 
     return () => {
       chart.unsubscribeClick(clickHandler);
+      chart.unsubscribeCrosshairMove(crosshairHandler);
       chart.remove();
     };
   }, [candles, signalMarkers, newsMarkers, theme]);
 
-  return <div ref={containerRef} style={{ height: 420, width: "100%" }} />;
+  return (
+    <div style={{ position: "relative" }}>
+      <div
+        ref={legendRef}
+        className="ltr-nums pointer-events-none absolute right-2 top-2 z-10 flex gap-3 rounded-md border border-border bg-surface/90 px-2 py-1 text-xs font-bold"
+        style={{ visibility: "hidden" }}
+      />
+      <div ref={containerRef} style={{ height: 420, width: "100%" }} />
+    </div>
+  );
 }
