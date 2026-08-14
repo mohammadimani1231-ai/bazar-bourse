@@ -41,13 +41,14 @@ describe("calculatePositionSize", () => {
     expect(result.warnings.some((w) => w.includes("سقف مجاز"))).toBe(true);
   });
 
-  it("دامنهٔ نوسان: حد ضرر دورتر از ±۵٪ هشدار می‌دهد", () => {
-    const result = calculatePositionSize(baseInput({ stopLossPrice: 800 })); // ۲۰٪ فاصله
+  // آستانهٔ هشدار = bandPct پیش‌فرض (DAILY_PRICE_BAND_PCT=۳٪) × STOP_LOSS_WARNING_MULTIPLE(۲) = ±۶٪
+  it("دامنهٔ نوسان: حد ضرر دورتر از ±۶٪ هشدار می‌دهد", () => {
+    const result = calculatePositionSize(baseInput({ stopLossPrice: 900 })); // ۱۰٪ فاصله
     expect(result.warnings.some((w) => w.includes("دامنهٔ نوسان"))).toBe(true);
   });
 
-  it("دامنهٔ نوسان: حد ضرر داخل ±۵٪ هشداری نمی‌دهد", () => {
-    const result = calculatePositionSize(baseInput({ stopLossPrice: 970 })); // ۳٪ فاصله
+  it("دامنهٔ نوسان: حد ضرر داخل ±۶٪ هشداری نمی‌دهد (قبل از STOP_LOSS_WARNING_MULTIPLE هشدار می‌داد)", () => {
+    const result = calculatePositionSize(baseInput({ stopLossPrice: 940 })); // ۶٪ فاصله، دقیقاً روی مرز جدید
     expect(result.warnings.some((w) => w.includes("دامنهٔ نوسان"))).toBe(false);
   });
 

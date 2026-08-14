@@ -1,5 +1,5 @@
 import type { MarketRegime } from "./marketRegime.ts";
-import { DAILY_PRICE_BAND_PCT } from "./marketRules.ts";
+import { DAILY_PRICE_BAND_PCT, STOP_LOSS_WARNING_MULTIPLE } from "./marketRules.ts";
 
 export interface PositionSizingInput {
   capital: number;
@@ -73,10 +73,13 @@ export function calculatePositionSize(input: PositionSizingInput): PositionSizin
 
   const capitalAtRisk = shareCount * riskPerShare;
 
+  // مقایسه با ۱× دامنهٔ روزانه نبود چون تقریباً هر حد ضرر مبتنی بر ATR را هشدار می‌داد (نویز
+  // دائمی، نه استثنا) — رجوع به کامنت STOP_LOSS_WARNING_MULTIPLE در lib/marketRules.ts.
   const stopDistancePct = (riskPerShare / entryPrice) * 100;
-  if (stopDistancePct > bandPct) {
+  const warningThresholdPct = bandPct * STOP_LOSS_WARNING_MULTIPLE;
+  if (stopDistancePct > warningThresholdPct) {
     warnings.push(
-      `حد ضرر ${stopDistancePct.toFixed(1)}٪ با قیمت ورود فاصله دارد، بیش از دامنهٔ نوسان مجاز یک جلسه (±${bandPct}٪) — رسیدن قیمت به آن ممکن است چند روز طول بکشد، نه یک جهش`,
+      `حد ضرر ${stopDistancePct.toFixed(1)}٪ با قیمت ورود فاصله دارد، بیش از ${STOP_LOSS_WARNING_MULTIPLE}× دامنهٔ نوسان مجاز یک جلسه (±${warningThresholdPct}٪) — رسیدن قیمت به آن ممکن است چند روز طول بکشد، نه یک جهش`,
     );
   }
 
