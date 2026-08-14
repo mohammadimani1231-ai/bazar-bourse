@@ -6,6 +6,9 @@ export interface ScreenerRow {
   rsi14: number | null;
   compositeRank: number | null;
   maDistancePct: number | null;
+  /** فاز D — فقط نمایشی، به signal-engine وصل نیست. منفی یعنی زیر سقف، صفر/مثبت یعنی رکورد جدید. */
+  distanceFromHigh3mPct: number | null;
+  distanceFromHigh1yPct: number | null;
   buyerPower: number | null;
   moneyFlow: number | null;
   suspiciousVolume: boolean | null;

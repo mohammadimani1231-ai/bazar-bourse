@@ -9,7 +9,7 @@ import {
   type ScreenerFilters,
   type ScreenerRow,
 } from "@/lib/screenerFilters.ts";
-import { formatFaCompactRial, formatFaNumber } from "@/lib/format.ts";
+import { formatFaCompactRial, formatFaNumber, formatFaPercent } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
 import { FilterDropdown, type FilterDropdownOption } from "@/components/FilterDropdown";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
@@ -154,6 +154,8 @@ export function ScreenerClient({
       { header: "RSI14", accessor: (r) => r.rsi14 },
       { header: "رتبه مرکب", accessor: (r) => r.compositeRank },
       { header: "فاصله از MA50", accessor: (r) => r.maDistancePct },
+      { header: "فاصله تا سقف ۳ماهه", accessor: (r) => r.distanceFromHigh3mPct },
+      { header: "فاصله تا سقف سالانه", accessor: (r) => r.distanceFromHigh1yPct },
       { header: "قدرت خریدار", accessor: (r) => r.buyerPower },
       { header: "ورود پول", accessor: (r) => r.moneyFlow },
     ]);
@@ -323,6 +325,8 @@ export function ScreenerClient({
                 <th className="p-2 text-right">RSI14</th>
                 <th className="p-2 text-right">ارزش معاملات</th>
                 <th className="p-2 text-right">قدرت خریدار</th>
+                <th className="p-2 text-right">فاصله تا سقف ۳ماهه</th>
+                <th className="p-2 text-right">فاصله تا سقف سالانه</th>
                 <th className="p-2 text-right"></th>
               </tr>
             </thead>
@@ -354,6 +358,20 @@ export function ScreenerClient({
                     <td className="ltr-nums p-2 text-right">{formatFaNumber(row.rsi14)}</td>
                     <td className="ltr-nums p-2 text-right">{formatFaCompactRial(row.tradeValue)}</td>
                     <td className="ltr-nums p-2 text-right">{formatFaNumber(row.buyerPower, 2)}</td>
+                    <td
+                      className={`ltr-nums p-2 text-right ${
+                        row.distanceFromHigh3mPct != null && row.distanceFromHigh3mPct >= 0 ? "font-bold text-up-text" : "text-muted"
+                      }`}
+                    >
+                      {row.distanceFromHigh3mPct == null ? "—" : formatFaPercent(row.distanceFromHigh3mPct)}
+                    </td>
+                    <td
+                      className={`ltr-nums p-2 text-right ${
+                        row.distanceFromHigh1yPct != null && row.distanceFromHigh1yPct >= 0 ? "font-bold text-up-text" : "text-muted"
+                      }`}
+                    >
+                      {row.distanceFromHigh1yPct == null ? "—" : formatFaPercent(row.distanceFromHigh1yPct)}
+                    </td>
                     <td className="p-2">
                       <button
                         onClick={() => handleAddToWatchlist(row)}
