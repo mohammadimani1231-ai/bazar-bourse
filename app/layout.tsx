@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Vazirmatn, JetBrains_Mono } from "next/font/google";
 import { Sidebar } from "@/components/Sidebar";
 import { Header } from "@/components/Header";
@@ -37,14 +38,19 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const supabase = createServerSupabaseClient();
-  const [{ data: regimeSetting }, { data: watchlist }] = await Promise.all([
+  const [{ data: regimeSetting }, { data: watchlist }, requestHeaders] = await Promise.all([
     supabase.from("settings").select("value").eq("key", "market_regime").maybeSingle(),
     supabase.from("watchlist").select("symbol, company_name"),
+    headers(),
   ]);
   const regime = ((regimeSetting?.value as MarketRegime | undefined) ?? "normal") as MarketRegime;
   const symbolOptions = (watchlist ?? [])
     .map((w) => ({ symbol: w.symbol as string, companyName: (w.company_name as string | null) ?? null }))
     .sort((a, b) => a.symbol.localeCompare(b.symbol, "fa"));
+  // proxy.ts این دو هدر را بعد از تأیید session_token واقعی از site_users پاس می‌دهد — روی
+  // /login خالی می‌مانند (آنجا از این گیت رد نشده، طبق طراحی).
+  const username = requestHeaders.get("x-site-username");
+  const isAdmin = requestHeaders.get("x-site-is-admin") === "1";
 
   return (
     <html lang="fa" dir="rtl" className={`${vazirmatn.variable} ${jetbrainsMono.variable} h-full antialiased`}>
@@ -53,9 +59,9 @@ export default async function RootLayout({
       </head>
       <body className="flex min-h-full font-sans">
         <ThemeProvider>
-          <Sidebar />
+          <Sidebar isAdmin={isAdmin} />
           <div className="flex min-w-0 flex-1 flex-col">
-            <Header regime={regime} symbolOptions={symbolOptions} />
+            <Header regime={regime} symbolOptions={symbolOptions} username={username} />
             <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6">{children}</main>
           </div>
         </ThemeProvider>

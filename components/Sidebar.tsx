@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Activity, Filter, Globe, FileText, HeartPulse, LineChart, Briefcase, Shield, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Activity, Filter, Globe, FileText, HeartPulse, LineChart, Briefcase, Shield, ClipboardList, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
@@ -17,6 +17,12 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
   { href: "/health", label: "سلامت", icon: HeartPulse },
 ];
 
+const ADMIN_LINK: { href: string; label: string; icon: LucideIcon } = {
+  href: "/settings/access",
+  label: "دسترسی‌ها",
+  icon: Users,
+};
+
 /**
  * سایدبار راست (نه چپ) — چون صفحه RTL است و این محور آینه می‌شود، برخلاف چارت‌ها و اعداد
  * که هرگز آینه نمی‌شوند (CLAUDE.md #۱۲). icon-only زیر lg، آیکون+برچسب از lg به بالا — همیشه
@@ -24,8 +30,9 @@ const LINKS: { href: string; label: string; icon: LucideIcon }[] = [
  * سایدبار روی همان توکن panel (bg-surface) کارت‌ها می‌نشیند، نه یک پوستهٔ تیرهٔ جدا — آیتم فعال
  * با accent مشخص می‌شود (نه warning، که در این سیستم فقط برای هشدار «دادهٔ کهنه» است).
  */
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
+  const links = isAdmin ? [...LINKS, ADMIN_LINK] : LINKS;
 
   return (
     <aside className="sticky top-0 flex h-dvh w-16 shrink-0 flex-col border-l border-border bg-surface lg:w-56">
@@ -37,7 +44,7 @@ export function Sidebar() {
         <span className="hidden lg:inline">بازار بورس</span>
       </Link>
       <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2">
-        {LINKS.map((link) => {
+        {links.map((link) => {
           const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
           const Icon = link.icon;
           return (
