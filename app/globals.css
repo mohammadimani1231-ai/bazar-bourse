@@ -23,8 +23,19 @@
 
   --accent: oklch(0.56 0.20 227);
   --accent-soft: oklch(0.56 0.20 227 / 0.14);
-  --up: oklch(0.58 0.18 155);
-  --down: oklch(0.58 0.22 27);
+  /*
+   * up/down — از ۲۰۲۶-۰۸-۱۵ با مقادیر hex اعتبارسنجی‌شدهٔ bazar-bourse-dataviz-spec.md بخش ۱
+   * جایگزین شدند (فرمول قبلی oklch حدس مستقل بود، این یکی با شبیه‌سازی واقعی کوررنگی
+   * protanopia/deuteranopia تست شده — رجوع به کامنت‌های اسپک). سبز خام/قرمز خام برای ~۸٪ مردان
+   * (کوررنگی قرمز-سبز) تقریباً یک رنگ دیده می‌شود؛ این جفت (سبز مایل به فیروزه‌ای + قرمز گرم‌تر)
+   * فاصلهٔ رنگی محسوس‌تری زیر شبیه‌سازی کوررنگی دارد. مقدار مارک (fill/bg) در روشن و تاریک
+   * یکسان است؛ برای متن (عدد delta) روی زمینهٔ روشن جفت تیره‌تر --up-text/--down-text لازم است
+   * چون جفت اصلی زیر ۴.۵:۱ کنتراست متن می‌افتد (نتیجهٔ validation در همان بخش).
+   */
+  --up: #089981;
+  --down: #f23645;
+  --up-text: #00805a; /* فقط روی زمینهٔ روشن با مارک فرق دارد — کنتراست متن ۴.۵:۱+ */
+  --down-text: #c81e30;
   --series2: oklch(0.56 0.17 282); /* هیو accent+55 — رنگ‌بندی دسته‌ای/غیرمعنایی نمودارها، هرگز up/down */
   --series3: oklch(0.56 0.17 157); /* هیو accent+290 */
   /* series4/series5: افزودهٔ Claude Code — README فقط ۲ رنگ سری اضافه تعریف کرده بود ولی
@@ -55,8 +66,12 @@
 
   --accent: oklch(0.68 0.19 227);
   --accent-soft: oklch(0.68 0.19 227 / 0.14);
-  --up: oklch(0.74 0.19 155);
-  --down: oklch(0.68 0.22 27);
+  --up: #089981;
+  --down: #f23645;
+  /* تاریک: طبق اسپک یک جفت برای هم مارک هم متن کافی است (بدون WARN در validation) — پس
+     up-text/down-text همان up/down‌اند، نه مقدار جدا. */
+  --up-text: #089981;
+  --down-text: #f23645;
   --series2: oklch(0.72 0.16 282);
   --series3: oklch(0.72 0.16 157);
   --series4: oklch(0.72 0.16 320);
@@ -73,6 +88,8 @@
   --color-muted: var(--muted);
   --color-up: var(--up);
   --color-down: var(--down);
+  --color-up-text: var(--up-text);
+  --color-down-text: var(--down-text);
   --color-accent: var(--accent);
   --color-accent-soft: var(--accent-soft);
   --color-series2: var(--series2);
@@ -115,5 +132,18 @@ body {
   direction: ltr;
   unicode-bidi: isolate;
   font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/*
+ * بخش ۶ dataviz-spec: عدد اصلی/بزرگ (hero figure) یک stat tile باید proportional باشد،
+ * نه tabular — tabular-nums برای هم‌عرض‌ماندن رقم‌ها در ستون جدول است (که اینجا موضوعیت
+ * ندارد چون این یک عدد تنها و بزرگ است، نه ردیف جدول) و بصراً برای اعداد درشت طبیعی‌تر
+ * دیده می‌شود. بقیهٔ خواص RTL/فونت با .ltr-nums یکسان می‌ماند.
+ */
+.ltr-nums-proportional {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: proportional-nums;
   font-family: var(--font-mono);
 }

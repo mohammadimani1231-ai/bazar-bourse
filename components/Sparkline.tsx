@@ -1,4 +1,3 @@
-import { useId } from "react";
 import { CHART_COLORS } from "@/lib/chartColors.ts";
 
 /**
@@ -6,11 +5,14 @@ import { CHART_COLORS } from "@/lib/chartColors.ts";
  * الهام از Robinhood. رنگ خط از روی علامت بازدهٔ کل بازه (شروع تا پایان) تعیین می‌شود؛
  * SVG خالص، بدون کتابخانهٔ چارت — برای دهها ردیف هم‌زمان در یک جدول سبک بماند.
  *
- * `glow` (اختیاری، پیش‌فرض خاموش): پرشدگی گرادیانی زیر خط، الهام از کارت‌های روند
- * TradingView/Trade Ideas که در بازبینی مراجع جهانی (۲۰۲۶-۰۸-۱۲) بررسی شدند — برای
- * جاهایی که این sparkline تنها عنصر اصلی کارت است (مثل هدر شاخص کل)، نه ردیف‌های ریز جدول.
- * `useId` چون ممکن است چند sparkline هم‌زمان روی یک صفحه رندر شوند و id گرادیان/کلیپ
- * نباید تصادفاً با هم تداخل کند.
+ * پیاده‌سازی «گزینهٔ الف» بخش ۵ bazar-bourse-dataviz-spec.md: خط جهت‌رنگ، marker انتهایی
+ * پر (فقط وقتی `glow` باشد — رجوع به کامنت زیر)، area fill تخت (نه گرادیان محو، طبق اسپک
+ * «opacity ~۱۰٪»)، بدون grid/axis، حداقل ۱۲ نقطه وگرنه نشانهٔ «داده ناکافی».
+ *
+ * `glow` (اختیاری، پیش‌فرض خاموش): علاوه بر area fill، حالا marker انتهایی را هم فعال
+ * می‌کند — چون این دو با هم فقط برای جایی معنا دارند که sparkline تنها عنصر اصلی کارت است
+ * (مثل هدر شاخص کل)، نه ردیف‌های ریز جدول اسکرینر (۶۴×۲۲px) که یک نقطهٔ ۴px نسبت به
+ * ارتفاعش زیادی بزرگ/شلوغ می‌شود.
  */
 export function Sparkline({
   values,
@@ -27,12 +29,11 @@ export function Sparkline({
    * مختصات داخلی/نسبت تصویر استفاده می‌شوند) — برای پس‌زمینهٔ کارت، نه ردیف جدول. */
   responsive?: boolean;
 }) {
-  const rawId = useId();
-  const gradientId = `spark-glow-${rawId.replace(/[^a-zA-Z0-9]/g, "")}`;
   const points = values.filter((v): v is number => v != null && Number.isFinite(v));
 
-  if (points.length < 2) {
-    return <span className="text-[10px] text-muted">—</span>;
+  // اسپک: کمتر از ۱۲ نقطه یعنی «داده ناکافی» — نه خط ناقص/گمراه‌کننده.
+  if (points.length < 12) {
+    return <span className="text-[10px] text-muted">داده ناکافی</span>;
   }
 
   const min = Math.min(...points);
@@ -48,9 +49,10 @@ export function Sparkline({
   const coordStr = coords.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
   const color = points[points.length - 1] >= points[0] ? CHART_COLORS.up : CHART_COLORS.down;
+  const [lastX, lastY] = coords[coords.length - 1];
 
   const areaPath = glow
-    ? `M${coords[0][0].toFixed(1)},${height} L${coordStr.replace(/ /g, " L")} L${coords[coords.length - 1][0].toFixed(1)},${height} Z`
+    ? `M${coords[0][0].toFixed(1)},${height} L${coordStr.replace(/ /g, " L")} L${lastX.toFixed(1)},${height} Z`
     : null;
 
   return (
@@ -62,16 +64,9 @@ export function Sparkline({
       className="ltr-nums"
       aria-hidden="true"
     >
-      {glow && (
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.35" />
-            <stop offset="100%" stopColor={color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-      )}
-      {areaPath && <path d={areaPath} fill={`url(#${gradientId})`} stroke="none" />}
+      {areaPath && <path d={areaPath} fill={color} fillOpacity={0.1} stroke="none" />}
       <polyline points={coordStr} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+      {glow && <circle cx={lastX} cy={lastY} r={4} fill={color} />}
     </svg>
   );
 }

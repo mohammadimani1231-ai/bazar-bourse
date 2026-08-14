@@ -11,8 +11,10 @@
  *    - lightweight-charts (CandleChart) کاملاً canvas-محور است، هیچ CSS نمی‌بیند.
  *    - محاسبهٔ رنگ میان‌یابی‌شده در JS (MarketTreemap::mixColor، CorrelationHeatmap::visualMap
  *      که خودِ ECharts باید بین چند stop رنگ را عددی interpolate کند).
- *    مقادیر HEX زیر دقیقاً از همان فرمول‌های oklch در app/globals.css محاسبه شدند (تبدیل
- *    OKLab→sRGB با اسکریپت Node، نه حدسی) — باید هر دو فایل هم‌گام بمانند.
+ *    مقادیر up/down دقیقاً همان hex اعتبارسنجی‌شدهٔ bazar-bourse-dataviz-spec.md بخش ۱ در
+ *    app/globals.css است (نه دیگر تبدیل oklch — از ۲۰۲۶-۰۸-۱۵ عوض شد) — باید هر دو فایل
+ *    هم‌گام بمانند. بقیهٔ رنگ‌ها (accent/warning/foreground/...) هنوز از فرمول‌های oklch قبلی
+ *    محاسبه شده‌اند، دست‌نخورده ماندند چون این اسپک فقط دربارهٔ up/down است.
  */
 export interface ChartColorSet {
   up: string;
@@ -27,8 +29,8 @@ export interface ChartColorSet {
 }
 
 const LIGHT: ChartColorSet = {
-  up: "#009746",
-  down: "#df2225",
+  up: "#089981",
+  down: "#f23645",
   warning: "#a36000",
   accent: "#0085cd",
   foreground: "#13161a",
@@ -39,8 +41,8 @@ const LIGHT: ChartColorSet = {
 };
 
 const DARK: ChartColorSet = {
-  up: "#00cc73",
-  down: "#ff4d46",
+  up: "#089981",
+  down: "#f23645",
   warning: "#e49e22",
   accent: "#00abf1",
   foreground: "#f0f2f4",
