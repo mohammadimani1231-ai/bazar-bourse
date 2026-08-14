@@ -183,7 +183,7 @@ export default async function TrackRecordPage() {
                         {row.benchmarkReturnPct == null ? "دادهٔ موجود نیست" : formatFaPercent(row.benchmarkReturnPct)}
                       </td>
                       <td
-                        className={`ltr-nums p-2 ${row.excessPct == null ? "text-muted" : row.excessPct >= 0 ? "text-up" : "text-down"}`}
+                        className={`ltr-nums p-2 ${row.excessPct == null ? "text-muted" : row.excessPct >= 0 ? "text-up-text" : "text-down-text"}`}
                       >
                         {row.excessPct == null ? "—" : formatFaPercent(row.excessPct)}
                       </td>
@@ -297,7 +297,7 @@ export default async function TrackRecordPage() {
                           {STATUS_FA[t.status] ?? t.status}
                         </td>
                         <td
-                          className={`ltr-nums p-2 ${t.return_pct == null ? "text-muted" : Number(t.return_pct) >= 0 ? "text-up" : "text-down"}`}
+                          className={`ltr-nums p-2 ${t.return_pct == null ? "text-muted" : Number(t.return_pct) >= 0 ? "text-up-text" : "text-down-text"}`}
                         >
                           {t.return_pct == null ? "—" : formatFaPercent(Number(t.return_pct))}
                         </td>

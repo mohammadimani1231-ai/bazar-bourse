@@ -75,7 +75,7 @@ export function PriceHeader({
               <p className="ltr-nums px-1 text-right text-2xl font-bold">{formatFaNumber(snapshot.lastPrice)}</p>
             </PriceFlash>
             {changePct != null && (
-              <span className={`ltr-nums text-sm font-bold ${changePct >= 0 ? "text-up" : "text-down"}`}>
+              <span className={`ltr-nums text-sm font-bold ${changePct >= 0 ? "text-up-text" : "text-down-text"}`}>
                 {formatFaPercent(changePct)}
               </span>
             )}

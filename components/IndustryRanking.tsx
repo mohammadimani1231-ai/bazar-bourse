@@ -29,7 +29,7 @@ export function IndustryRanking({ items }: { items: IndustryFlow[] }) {
                     با دو ردیف حل کرده. */}
                 <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
                   <span className="text-muted">{item.industry}</span>
-                  <span className={`ltr-nums shrink-0 font-bold ${positive ? "text-up" : "text-down"}`}>
+                  <span className={`ltr-nums shrink-0 font-bold ${positive ? "text-up-text" : "text-down-text"}`}>
                     {formatFaCompactRial(item.moneyFlow)}
                   </span>
                 </div>

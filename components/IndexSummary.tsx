@@ -33,7 +33,7 @@ function IndexCard({
           <p className="ltr-nums text-right text-3xl font-bold tracking-tight">{formatFaNumber(value)}</p>
           <span
             className={`ltr-nums rounded-full px-2 py-0.5 text-xs font-bold ${
-              changePct == null ? "bg-surface-2 text-muted" : changePct >= 0 ? "bg-up/20 text-up" : "bg-down/20 text-down"
+              changePct == null ? "bg-surface-2 text-muted" : changePct >= 0 ? "bg-up/20 text-up-text" : "bg-down/20 text-down-text"
             }`}
           >
             {formatFaPercent(changePct)}

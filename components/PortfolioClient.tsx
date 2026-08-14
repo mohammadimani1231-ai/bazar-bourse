@@ -265,7 +265,7 @@ export function PortfolioClient({
                     <td className="ltr-nums p-2 text-right">{p.stopLoss == null ? "—" : formatFaNumber(p.stopLoss)}</td>
                     <td className="ltr-nums p-2 text-right">{formatFaNumber(p.shareCount)}</td>
                     <td className="ltr-nums p-2 text-right">{formatFaNumber(p.positionValue)}</td>
-                    <td className={`ltr-nums p-2 text-right font-bold ${p.unrealizedPnl == null ? "text-muted" : p.unrealizedPnl >= 0 ? "text-up" : "text-down"}`}>
+                    <td className={`ltr-nums p-2 text-right font-bold ${p.unrealizedPnl == null ? "text-muted" : p.unrealizedPnl >= 0 ? "text-up-text" : "text-down-text"}`}>
                       {p.unrealizedPnl == null ? "—" : `${formatFaNumber(p.unrealizedPnl)} (${formatFaPercent(p.unrealizedPnlPct)})`}
                     </td>
                     <td className="p-2">
@@ -300,7 +300,7 @@ export function PortfolioClient({
                     <td className="p-2 font-bold">{c.symbol}</td>
                     <td className="ltr-nums p-2 text-right">{formatFaNumber(c.entryPrice)} → {formatFaNumber(c.exitPrice)}</td>
                     <td className="ltr-nums p-2 text-right text-muted">{c.entryDateFa} → {c.exitDateFa}</td>
-                    <td className={`ltr-nums p-2 text-right font-bold ${c.realizedPnl >= 0 ? "text-up" : "text-down"}`}>
+                    <td className={`ltr-nums p-2 text-right font-bold ${c.realizedPnl >= 0 ? "text-up-text" : "text-down-text"}`}>
                       {formatFaNumber(c.realizedPnl)} ({formatFaPercent(c.realizedPnlPct)})
                     </td>
                   </tr>

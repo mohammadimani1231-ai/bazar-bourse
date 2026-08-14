@@ -22,9 +22,9 @@ export function GlobalTickerBar({ items }: { items: TickerItem[] }) {
                 item.changePct == null
                   ? "text-muted"
                   : item.changePct > 0
-                    ? "text-up"
+                    ? "text-up-text"
                     : item.changePct < 0
-                      ? "text-down"
+                      ? "text-down-text"
                       : "text-muted"
               }`}
             >

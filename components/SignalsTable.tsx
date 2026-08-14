@@ -114,8 +114,8 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
         <>
           <p className="ltr-nums mb-2 text-xs text-muted">
             {formatFaNumber(rows.length, 0)} سیگنال —{" "}
-            <span className="text-up">{formatFaNumber(buyCount, 0)} خرید</span>،{" "}
-            <span className="text-down">{formatFaNumber(sellCount, 0)} فروش</span>
+            <span className="text-up-text">{formatFaNumber(buyCount, 0)} خرید</span>،{" "}
+            <span className="text-down-text">{formatFaNumber(sellCount, 0)} فروش</span>
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
