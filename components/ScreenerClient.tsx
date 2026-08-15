@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import { SearchX } from "lucide-react";
+import { SearchX, TriangleAlert } from "lucide-react";
 import {
   applyScreenerFilters,
   DEFAULT_SCREENER_FILTERS,
@@ -360,17 +360,49 @@ export function ScreenerClient({
                     <td className="ltr-nums p-2 text-right">{formatFaNumber(row.buyerPower, 2)}</td>
                     <td
                       className={`ltr-nums p-2 text-right ${
-                        row.distanceFromHigh3mPct != null && row.distanceFromHigh3mPct >= 0 ? "font-bold text-up-text" : "text-muted"
+                        row.distanceFromHigh3mGap
+                          ? "text-warning"
+                          : row.distanceFromHigh3mPct != null && row.distanceFromHigh3mPct >= 0
+                            ? "font-bold text-up-text"
+                            : "text-muted"
                       }`}
                     >
-                      {row.distanceFromHigh3mPct == null ? "—" : formatFaPercent(row.distanceFromHigh3mPct)}
+                      {row.distanceFromHigh3mGap ? (
+                        <span
+                          className="inline-flex items-center gap-1"
+                          title="توقف نماد/افزایش سرمایهٔ احتمالی در این بازه — سقف قابل‌اتکا نیست"
+                        >
+                          <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          توقف/جهش
+                        </span>
+                      ) : row.distanceFromHigh3mPct == null ? (
+                        "—"
+                      ) : (
+                        formatFaPercent(row.distanceFromHigh3mPct)
+                      )}
                     </td>
                     <td
                       className={`ltr-nums p-2 text-right ${
-                        row.distanceFromHigh1yPct != null && row.distanceFromHigh1yPct >= 0 ? "font-bold text-up-text" : "text-muted"
+                        row.distanceFromHigh1yGap
+                          ? "text-warning"
+                          : row.distanceFromHigh1yPct != null && row.distanceFromHigh1yPct >= 0
+                            ? "font-bold text-up-text"
+                            : "text-muted"
                       }`}
                     >
-                      {row.distanceFromHigh1yPct == null ? "—" : formatFaPercent(row.distanceFromHigh1yPct)}
+                      {row.distanceFromHigh1yGap ? (
+                        <span
+                          className="inline-flex items-center gap-1"
+                          title="توقف نماد/افزایش سرمایهٔ احتمالی در این بازه — سقف قابل‌اتکا نیست"
+                        >
+                          <TriangleAlert className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                          توقف/جهش
+                        </span>
+                      ) : row.distanceFromHigh1yPct == null ? (
+                        "—"
+                      ) : (
+                        formatFaPercent(row.distanceFromHigh1yPct)
+                      )}
                     </td>
                     <td className="p-2">
                       <button

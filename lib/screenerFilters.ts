@@ -14,6 +14,10 @@ export interface ScreenerRow {
   suspiciousVolume: boolean | null;
   /** آخرین ~۲۰ قیمت پایانی تعدیل‌شده، صعودی زمانی — برای اسپارک‌لاین ردیف؛ اختیاری، اگر نبود «—» نشان داده می‌شود. */
   recentCloses?: number[];
+  /** اگر پنجرهٔ ۳ماهه/سالانه یک وقفهٔ توقف+جهش (lib/priceContinuity.ts) داشته باشد، عدد فاصله
+   * null می‌شود و این پرچم true — UI به‌جای عدد caveat نشان می‌دهد، نه سقف نادرست. */
+  distanceFromHigh3mGap: boolean;
+  distanceFromHigh1yGap: boolean;
 }
 
 export interface RangeFilter {

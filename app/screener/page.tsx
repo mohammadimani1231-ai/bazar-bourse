@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { computeRawScore, percentileRank } from "@/lib/composite-rank.ts";
 import { distanceFromHigh, THREE_MONTH_TRADING_DAYS, ONE_YEAR_TRADING_DAYS } from "@/lib/priceExtremes.ts";
+import { findContinuityGap } from "@/lib/priceContinuity.ts";
 import type { ScreenerRow } from "@/lib/screenerFilters.ts";
 import { ScreenerClient, type PresetRow } from "@/components/ScreenerClient";
 
@@ -24,6 +25,8 @@ interface RecentCandleData {
   /** برای فاصله تا سقف ۳ماهه/سالانه (فاز D) — عمداً قیمت پایانی خام، نه تعدیل‌شده، چون این
    * عدد باید همان چیزی باشد که در tsetmc دیده می‌شود. */
   finalPriceCloses: Map<string, number[]>;
+  /** همان finalPriceCloses به‌همراه تاریخ هر ردیف — فقط برای تشخیص وقفهٔ توقف+جهش (فاز F). */
+  finalPriceDated: Map<string, { date: string; close: number | null }[]>;
 }
 
 /**
@@ -37,6 +40,7 @@ async function fetchRecentCloses(
 ): Promise<RecentCandleData> {
   const adjustedCloses = new Map<string, number[]>();
   const finalPriceCloses = new Map<string, number[]>();
+  const finalPriceDated = new Map<string, { date: string; close: number | null }[]>();
   let from = 0;
   for (;;) {
     const { data } = await supabase
@@ -57,6 +61,9 @@ async function fetchRecentCloses(
         list.push(row.final_price);
         finalPriceCloses.set(row.symbol, list);
       }
+      const datedList = finalPriceDated.get(row.symbol) ?? [];
+      datedList.push({ date: row.date, close: row.final_price });
+      finalPriceDated.set(row.symbol, datedList);
     }
     if (page.length < PAGE_SIZE) break;
     from += PAGE_SIZE;
@@ -68,7 +75,20 @@ async function fetchRecentCloses(
   for (const [symbol, closes] of finalPriceCloses) {
     if (closes.length > CANDLES_PER_SYMBOL) finalPriceCloses.set(symbol, closes.slice(-CANDLES_PER_SYMBOL));
   }
-  return { adjustedCloses, finalPriceCloses };
+  for (const [symbol, rows] of finalPriceDated) {
+    if (rows.length > CANDLES_PER_SYMBOL) finalPriceDated.set(symbol, rows.slice(-CANDLES_PER_SYMBOL));
+  }
+  return { adjustedCloses, finalPriceCloses, finalPriceDated };
+}
+
+/** همان پنجره‌ای که distanceFromHigh با .slice(-windowDays) می‌بیند — اگر داخلش وقفهٔ
+ * توقف+جهش باشد، MAX همان پنجره از قبل از یک ری‌پرایسینگ می‌آید و سقف نادرست است (فاز F). */
+function hasContinuityGapInWindow(dated: { date: string; close: number | null }[], windowDays: number): boolean {
+  // فیلتر null قبل از slice — دقیقاً همان پایه‌ای که finalPriceCloses/distanceFromHigh
+  // می‌بینند، وگرنه ردیف‌های placeholder روز توقف (close=null) پنجره را جابه‌جا می‌کنند.
+  const window = dated.filter((d) => d.close != null).slice(-windowDays);
+  if (window.length === 0) return false;
+  return findContinuityGap(window, window[0].date, window[window.length - 1].date) != null;
 }
 
 export default async function ScreenerPage() {
@@ -105,7 +125,7 @@ export default async function ScreenerPage() {
   }
 
   const candleCutoffDate = new Date(new Date().getTime() - CANDLE_WINDOW_DAYS * 24 * 60 * 60_000).toISOString().slice(0, 10);
-  const { adjustedCloses: closesBySymbol, finalPriceCloses } = await fetchRecentCloses(supabase, candleCutoffDate);
+  const { adjustedCloses: closesBySymbol, finalPriceCloses, finalPriceDated } = await fetchRecentCloses(supabase, candleCutoffDate);
   const candleResults = symbols.map(
     (symbol) => [symbol, computeRawScore(closesBySymbol.get(symbol) ?? [])] as const,
   );
@@ -119,7 +139,10 @@ export default async function ScreenerPage() {
     const metrics = latestMetric.get(symbol);
     const scoreResult = rawScoreBySymbol.get(symbol);
     const finalPrices = finalPriceCloses.get(symbol) ?? [];
+    const finalPricesDated = finalPriceDated.get(symbol) ?? [];
     const currentPrice = lastPriceBySymbol.get(symbol) ?? null;
+    const gap3m = hasContinuityGapInWindow(finalPricesDated, THREE_MONTH_TRADING_DAYS);
+    const gap1y = hasContinuityGapInWindow(finalPricesDated, ONE_YEAR_TRADING_DAYS);
     return {
       symbol,
       companyName: companyNameOf.get(symbol) ?? null,
@@ -128,8 +151,10 @@ export default async function ScreenerPage() {
       rsi14: scoreResult?.components.rsi14 ?? null,
       compositeRank: rankBySymbol.get(symbol) ?? null,
       maDistancePct: scoreResult?.components.distFromEma50Pct ?? null,
-      distanceFromHigh3mPct: distanceFromHigh(currentPrice, finalPrices, THREE_MONTH_TRADING_DAYS).distancePct,
-      distanceFromHigh1yPct: distanceFromHigh(currentPrice, finalPrices, ONE_YEAR_TRADING_DAYS).distancePct,
+      distanceFromHigh3mPct: gap3m ? null : distanceFromHigh(currentPrice, finalPrices, THREE_MONTH_TRADING_DAYS).distancePct,
+      distanceFromHigh1yPct: gap1y ? null : distanceFromHigh(currentPrice, finalPrices, ONE_YEAR_TRADING_DAYS).distancePct,
+      distanceFromHigh3mGap: gap3m,
+      distanceFromHigh1yGap: gap1y,
       buyerPower: metrics?.get("buyer_power") ?? null,
       moneyFlow: metrics?.get("money_flow") ?? null,
       suspiciousVolume: metrics?.get("suspicious_volume") == null ? null : metrics.get("suspicious_volume") === 1,

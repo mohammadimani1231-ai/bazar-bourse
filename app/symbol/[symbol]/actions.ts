@@ -10,6 +10,7 @@ import { formatJalaliDay, formatJalaliDateTime } from "@/lib/jalali.ts";
 import { renderReportShell, renderReportSection, renderReportTable, renderReportParagraph } from "@/lib/reportHtml.ts";
 import { renderLineChartSvg } from "@/lib/reportCharts.ts";
 import { parseWeeklySummaryResponse } from "@/lib/weeklyBriefSchema.ts";
+import { findContinuityGap } from "@/lib/priceContinuity.ts";
 
 const MODEL = "claude-sonnet-5";
 
@@ -79,11 +80,22 @@ export async function generateSymbolReport(symbol: string): Promise<{ ok: boolea
       return row?.adjusted_close ?? null;
     };
     const latestClose = [...candles].reverse().find((c) => c.adjusted_close != null)?.adjusted_close ?? null;
-    const perf = {
-      "۱ ماه": pctChange(latestClose, closeAtOrBefore(dateAt(30))),
-      "۳ ماه": pctChange(latestClose, closeAtOrBefore(dateAt(90))),
-      "۱ سال": pctChange(latestClose, closeAtOrBefore(dateAt(365))),
-    };
+    // اگر بین ابتدا و انتهای بازه یک وقفهٔ معاملاتی >۱۰ روزه همراه با جهش/افت >۳۰٪ باشد (نشانهٔ
+    // محتمل توقف نماد/افزایش سرمایه)، بازدهی گمراه‌کننده است — adjusted_close این پروژه
+    // split-adjustment واقعی اعمال نمی‌کند (کشف‌شده حین بررسی پارسان، ۲۰۲۶-۰۸-۱۵).
+    const closesForGapCheck = candles.map((c) => ({ date: c.date as string, close: c.adjusted_close }));
+    const perfWindows: { label: string; days: number }[] = [
+      { label: "۱ ماه", days: 30 },
+      { label: "۳ ماه", days: 90 },
+      { label: "۱ سال", days: 365 },
+    ];
+    const perfEntries = perfWindows.map(({ label, days }) => {
+      const gap = findContinuityGap(closesForGapCheck, dateAt(days), todayStr);
+      const pct = gap ? null : pctChange(latestClose, closeAtOrBefore(dateAt(days)));
+      return { label, pct, gap };
+    });
+    const perf = Object.fromEntries(perfEntries.map((e) => [e.label, e.pct]));
+    const oneYearGap = perfEntries.find((e) => e.label === "۱ سال")?.gap ?? null;
 
     const { data: usdIrrRows } = await client.from("benchmark_candles").select("date, close").eq("asset", "usd_irr").order("date", { ascending: true }).limit(2000);
     const usdByDate = new Map((usdIrrRows ?? []).map((r) => [r.date as string, r.close as number]));
@@ -91,7 +103,8 @@ export async function generateSymbolReport(symbol: string): Promise<{ ok: boolea
     const usdOneYearAgo = usdByDate.get([...usdByDate.keys()].filter((d) => d <= dateAt(365)).sort().slice(-1)[0] ?? "") ?? null;
     const priceUsdNow = latestClose != null && usdNow ? latestClose / usdNow : null;
     const priceUsdOneYearAgo = closeAtOrBefore(dateAt(365)) != null && usdOneYearAgo ? closeAtOrBefore(dateAt(365))! / usdOneYearAgo : null;
-    const dollarPerf1y = pctChange(priceUsdNow, priceUsdOneYearAgo);
+    // همان بازهٔ یک‌سالهٔ بالا — اگر آنجا caveat خورده، این عدد هم از همان قیمت مبنا ساخته می‌شود
+    const dollarPerf1y = oneYearGap ? null : pctChange(priceUsdNow, priceUsdOneYearAgo);
 
     const { data: industrySymbolsRaw } = await client.from("watchlist").select("symbol").eq("industry", industry);
     const industrySymbols = (industrySymbolsRaw ?? []).map((r) => r.symbol as string).filter((s) => s !== symbol);
@@ -112,19 +125,29 @@ export async function generateSymbolReport(symbol: string): Promise<{ ok: boolea
     const tedpixOneYearAgo = tedpixByDate.get([...tedpixByDate.keys()].filter((d) => d <= dateAt(365)).sort().slice(-1)[0] ?? "") ?? null;
     const tedpixPerf1y = pctChange(tedpixNow, tedpixOneYearAgo);
 
-    dataSnapshot.price_performance = { ...perf, dollar_denominated_1y_pct: dollarPerf1y, industry_index_1y_pct: industryPerf1y, tedpix_1y_pct: tedpixPerf1y };
+    const CONTINUITY_CAVEAT = "توقف نماد/افزایش سرمایهٔ احتمالی در این بازه — بازدهی قابل‌اتکا نیست";
+    dataSnapshot.price_performance = {
+      ...perf,
+      dollar_denominated_1y_pct: dollarPerf1y,
+      industry_index_1y_pct: industryPerf1y,
+      tedpix_1y_pct: tedpixPerf1y,
+      continuity_gaps: perfEntries.filter((e) => e.gap != null).map((e) => ({ window: e.label, prevDate: e.gap!.prevDate, date: e.gap!.date, gapDays: e.gap!.gapDays })),
+    };
     sections.push(
       renderReportSection(
         "۲. عملکرد قیمت (adjusted)",
         renderReportTable(
           [
-            { header: "بازه", accessor: (r: [string, number | null]) => r[0] },
-            { header: "بازده", accessor: (r: [string, number | null]) => formatFaPercent(r[1]) },
+            { header: "بازه", accessor: (r: (typeof perfEntries)[number]) => r.label },
+            { header: "بازده", accessor: (r: (typeof perfEntries)[number]) => (r.gap ? CONTINUITY_CAVEAT : formatFaPercent(r.pct)) },
           ],
-          Object.entries(perf),
+          perfEntries,
         ) +
           renderReportParagraph(
-            `بازده ۱سالهٔ نمای دلاری (قیمت÷دلار آزاد): ${formatFaPercent(dollarPerf1y)} — در مقابل شاخص صنعت (ترکیب هم‌وزن رقبا): ${formatFaPercent(industryPerf1y)} و شاخص کل: ${formatFaPercent(tedpixPerf1y)}.`,
+            // industryPerf1y/tedpixPerf1y بنچمارک مستقل‌اند (نه قیمت خودِ این نماد) — وقفهٔ
+            // معاملاتی این نماد روی درستی آن‌ها اثر ندارد؛ فقط بخش دلاریِ متکی به قیمت خودِ
+            // نماد caveat می‌گیرد.
+            `بازده ۱سالهٔ نمای دلاری (قیمت÷دلار آزاد): ${oneYearGap ? CONTINUITY_CAVEAT : formatFaPercent(dollarPerf1y)} — در مقابل شاخص صنعت (ترکیب هم‌وزن رقبا): ${formatFaPercent(industryPerf1y)} و شاخص کل: ${formatFaPercent(tedpixPerf1y)}.`,
           ),
       ),
     );
