@@ -11,6 +11,7 @@ import {
   buyerPower,
   moneyFlow,
   moneyFlowByIndustry,
+  legalNetFlow,
   isSuspiciousVolume,
   isWhaleBuyer,
   isCodeToCode,
@@ -108,6 +109,9 @@ Deno.serve(async () => {
       const power = buyerPower(buy, sell);
       const flow = moneyFlow(latest);
       moneyFlowRows.push({ symbol, moneyFlow: flow });
+      // فقط جمع‌آوری — قانون legal_outflow_3d که از این می‌خواند enabled=false است تا چند ماه
+      // داده جمع شود و validate شود، دقیقاً مثل تصمیم صریح این تصمیم (۲۰۲۶-۰۸-۱۵).
+      const legalFlow = legalNetFlow(latest);
 
       const candles = candlesBySymbol.get(symbol) ?? [];
       const suspicious = isSuspiciousVolume(latest.volume, candles.slice(0, 60), candles.slice(0, 240));
@@ -125,6 +129,7 @@ Deno.serve(async () => {
         { symbol, metric: "per_capita_sell", value: sell, meta: null, captured_at: latest.captured_at },
         { symbol, metric: "buyer_power", value: power, meta: null, captured_at: latest.captured_at },
         { symbol, metric: "money_flow", value: flow, meta: null, captured_at: latest.captured_at },
+        { symbol, metric: "legal_net_flow", value: legalFlow, meta: null, captured_at: latest.captured_at },
         {
           symbol,
           metric: "suspicious_volume",

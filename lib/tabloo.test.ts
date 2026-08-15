@@ -5,6 +5,7 @@ import {
   buyerPower,
   moneyFlow,
   moneyFlowByIndustry,
+  legalNetFlow,
   isSuspiciousVolume,
   isWhaleBuyer,
   isCodeToCode,
@@ -60,6 +61,20 @@ describe("moneyFlow", () => {
 
   it("با فیلد null → null", () => {
     expect(moneyFlow({ buy_i_volume: null, sell_i_volume: 1000, close_price: 10 })).toBeNull();
+  });
+});
+
+describe("legalNetFlow", () => {
+  it("(sell_n_volume - buy_n_volume) × close_price را حساب می‌کند — علامت برعکس moneyFlow", () => {
+    expect(legalNetFlow({ buy_n_volume: 400, sell_n_volume: 1000, close_price: 10 })).toBe(6000);
+  });
+
+  it("خرید خالص حقوقی بیشتر از فروش → منفی", () => {
+    expect(legalNetFlow({ buy_n_volume: 1000, sell_n_volume: 400, close_price: 10 })).toBe(-6000);
+  });
+
+  it("با فیلد null → null", () => {
+    expect(legalNetFlow({ buy_n_volume: null, sell_n_volume: 1000, close_price: 10 })).toBeNull();
   });
 });
 

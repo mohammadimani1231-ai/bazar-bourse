@@ -61,6 +61,19 @@ export function moneyFlow(
   return (row.buy_i_volume - row.sell_i_volume) * row.close_price;
 }
 
+/**
+ * خروج خالص پول حقوقی — فقط جمع‌آوری/ذخیره (فاز اولیهٔ «پول هوشمند»، ۲۰۲۶-۰۸-۱۵). عمداً علامت
+ * برعکسِ moneyFlow بالاست: اینجا مثبت یعنی خروج (sell_n > buy_n)، چون قانون legal_outflow_3d
+ * (هنوز enabled=false، نیازمند چند ماه دادهٔ تاریخی قبل از validate) دنبال «مثبت» می‌گردد،
+ * هم‌ساختار دقیق money_inflow_3d که هم دنبال «مثبت» (ورود) می‌گردد.
+ */
+export function legalNetFlow(
+  row: Pick<QuoteRow, "buy_n_volume" | "sell_n_volume" | "close_price">,
+): number | null {
+  if (row.buy_n_volume == null || row.sell_n_volume == null || row.close_price == null) return null;
+  return (row.sell_n_volume - row.buy_n_volume) * row.close_price;
+}
+
 /** تجمیع ورود/خروج پول حقیقی به تفکیک صنعت. ردیف‌های بدون moneyFlow نادیده گرفته می‌شوند. */
 export function moneyFlowByIndustry(
   rows: { symbol: string; moneyFlow: number | null }[],
