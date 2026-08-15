@@ -7,16 +7,13 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/browserClient.ts";
 import { formatJalaliDay, formatJalaliDateTime, formatTehranTime } from "@/lib/jalali.ts";
 import { formatFaNumber } from "@/lib/format.ts";
 import { toCsv } from "@/lib/csv.ts";
+import type { RuleEvaluationLike } from "@/lib/signalExplain.ts";
 import { ExportCsvButton } from "@/components/ExportCsvButton";
-import { SignalExplainButton } from "@/components/SignalExplainButton";
+import { SignalReasonBreakdown } from "@/components/SignalReasonBreakdown";
 import { EmptyState } from "@/components/EmptyState";
 import { PositionSizeSuggestion } from "@/components/PositionSizeSuggestion";
 
-export interface RuleEvaluationLike {
-  rule: string;
-  triggered: boolean;
-  contribution: number;
-}
+export type { RuleEvaluationLike };
 
 export interface SignalRow {
   id: number;
@@ -136,7 +133,6 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                     </td>
                   </tr>
                   {group.rows.map((row, i) => {
-                    const triggered = (row.reasons ?? []).filter((r) => r.triggered);
                     const expanded = expandedId === row.id;
                     return (
                       <Fragment key={row.id}>
@@ -171,18 +167,13 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                         {expanded && (
                           <tr key={`${row.id}-detail`} className="border-b border-border/60 bg-surface-2/40">
                             <td colSpan={5} className="p-2">
-                              <div className="mb-2 flex flex-wrap items-center gap-1">
-                                {triggered.length === 0 ? (
-                                  <span className="text-muted">فاکتوری trigger نشده</span>
-                                ) : (
-                                  triggered.map((t) => (
-                                    <span key={t.rule} className="rounded bg-surface px-2 py-0.5">
-                                      {t.rule}{" "}
-                                      <span className="ltr-nums text-muted">({formatFaNumber(t.contribution, 0)})</span>
-                                    </span>
-                                  ))
-                                )}
-                                <SignalExplainButton reasons={row.reasons} />
+                              <div className="mb-2">
+                                <SignalReasonBreakdown
+                                  score={row.score}
+                                  direction={row.direction}
+                                  regime={row.regime}
+                                  reasons={row.reasons}
+                                />
                               </div>
                               {row.direction === "buy" && (
                                 <PositionSizeSuggestion symbol={row.symbol} signalId={row.id} />

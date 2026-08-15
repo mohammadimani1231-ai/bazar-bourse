@@ -1,49 +1,51 @@
+"use client";
+
+import { useState } from "react";
 import { formatJalaliDateTime } from "@/lib/jalali.ts";
+import { SignalReasonBreakdown } from "@/components/SignalReasonBreakdown";
+import type { RuleEvaluationLike } from "@/lib/signalExplain.ts";
 
 export interface SignalHistoryItem {
   id: number;
   direction: string;
+  score: number;
+  regime: string;
   createdAt: string;
-  reasons: unknown;
-}
-
-interface RuleEvaluationLike {
-  rule?: unknown;
-  triggered?: unknown;
-}
-
-/** فقط قوانینی که واقعاً trigger شده‌اند (reasons شامل همهٔ قوانین فعال است، نه فقط trigger‌شده‌ها) */
-function reasonLabels(reasons: unknown): string[] {
-  if (!Array.isArray(reasons)) return [];
-  return reasons
-    .filter((r): r is RuleEvaluationLike => !!r && typeof r === "object" && (r as RuleEvaluationLike).triggered === true)
-    .map((r) => String(r.rule))
-    .filter((name) => name !== "undefined");
+  reasons: RuleEvaluationLike[];
 }
 
 /** بدون کارت/تیتر خودش — والد (`SymbolTabs`) کارت و تیتر تب را نگه می‌دارد. */
 export function SignalHistoryList({ items }: { items: SignalHistoryItem[] }) {
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
   return (
     <ul className="flex flex-col gap-2">
-      {items.map((item) => (
-        <li key={item.id} className="flex flex-wrap items-center gap-2 border-b border-border/60 pb-2 text-xs last:border-0">
-          <span
-            className={`rounded px-2 py-0.5 font-bold ${
-              item.direction === "buy" ? "bg-up/20 text-up" : item.direction === "sell" ? "bg-down/20 text-down" : "bg-surface-2 text-muted"
-            }`}
-          >
-            {item.direction === "buy" ? "خرید" : item.direction === "sell" ? "فروش" : item.direction}
-          </span>
-          <span className="ltr-nums text-muted">{formatJalaliDateTime(item.createdAt)}</span>
-          <div className="flex flex-wrap gap-1">
-            {reasonLabels(item.reasons).map((r) => (
-              <span key={r} className="rounded bg-surface-2 px-1.5 py-0.5 text-muted">
-                {r}
+      {items.map((item) => {
+        const expanded = expandedId === item.id;
+        return (
+          <li key={item.id} className="border-b border-border/60 pb-2 text-xs last:border-0">
+            <button
+              type="button"
+              onClick={() => setExpandedId(expanded ? null : item.id)}
+              className="flex w-full flex-wrap items-center gap-2 text-right"
+            >
+              <span
+                className={`rounded px-2 py-0.5 font-bold ${
+                  item.direction === "buy" ? "bg-up/20 text-up" : item.direction === "sell" ? "bg-down/20 text-down" : "bg-surface-2 text-muted"
+                }`}
+              >
+                {item.direction === "buy" ? "خرید" : item.direction === "sell" ? "فروش" : item.direction}
               </span>
-            ))}
-          </div>
-        </li>
-      ))}
+              <span className="ltr-nums text-muted">{formatJalaliDateTime(item.createdAt)}</span>
+            </button>
+            {expanded && (
+              <div className="mt-2">
+                <SignalReasonBreakdown score={item.score} direction={item.direction} regime={item.regime} reasons={item.reasons} />
+              </div>
+            )}
+          </li>
+        );
+      })}
     </ul>
   );
 }

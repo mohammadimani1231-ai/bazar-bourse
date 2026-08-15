@@ -1,24 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { explainSignalFactors } from "./signalExplain.ts";
+import { ruleLabel } from "./signalExplain.ts";
 
-describe("explainSignalFactors", () => {
-  it("فقط قوانین trigger‌شده را توضیح می‌دهد", () => {
-    const result = explainSignalFactors([
-      { rule: "ema_cross_up", triggered: true, contribution: 25 },
-      { rule: "rsi_oversold", triggered: false, contribution: 0 },
-    ]);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toContain("کراس صعودی");
+describe("ruleLabel", () => {
+  it("برای قانون شناخته‌شده همان جملهٔ توضیحی را می‌دهد", () => {
+    expect(ruleLabel("ema_cross_up")).toContain("کراس صعودی");
   });
 
-  it("قانون ناشناخته هم به یک جملهٔ generic تبدیل می‌شود، نه حذف می‌شود", () => {
-    const result = explainSignalFactors([{ rule: "unknown_rule_xyz", triggered: true }]);
-    expect(result).toHaveLength(1);
-    expect(result[0]).toContain("unknown_rule_xyz");
-  });
-
-  it("آرایهٔ خالی → آرایهٔ خالی", () => {
-    expect(explainSignalFactors([])).toEqual([]);
+  it("برای قانون ناشناخته یک برچسب generic می‌دهد، نه throw", () => {
+    expect(ruleLabel("unknown_rule_xyz")).toContain("unknown_rule_xyz");
   });
 
   it("همهٔ قوانین شناخته‌شدهٔ فعلی template دارند", () => {
@@ -27,9 +16,8 @@ describe("explainSignalFactors", () => {
       "suspicious_volume", "buyer_power_strong", "money_inflow_3d",
       "near_52w_high", "near_52w_low", "composite_rank_strong",
     ];
-    const result = explainSignalFactors(rules.map((rule) => ({ rule, triggered: true })));
-    for (const text of result) {
-      expect(text.startsWith("قانون «")).toBe(false);
+    for (const rule of rules) {
+      expect(ruleLabel(rule).startsWith("قانون «")).toBe(false);
     }
   });
 });

@@ -18,13 +18,7 @@ const RULE_TEMPLATES: Record<string, string> = {
   composite_rank_strong: "رتبهٔ فنی مرکب (شبیه SCTR) بالای پرسنتایل ۸۰ است.",
 };
 
-/**
- * فاکتورهای trigger‌شدهٔ یک سیگنال (از reasons jsonb) را به جملهٔ فارسی سادهٔ توضیحی
- * تبدیل می‌کند — بدون LLM، فقط template متنی روی همان دادهٔ ساختاریافته‌ای که موتور
- * سیگنال (lib/signal-engine.ts) خودش تولید کرده.
- */
-export function explainSignalFactors(reasons: RuleEvaluationLike[]): string[] {
-  return reasons
-    .filter((r) => r.triggered)
-    .map((r) => RULE_TEMPLATES[r.rule] ?? `قانون «${r.rule}» trigger شده است.`);
+/** همان جملهٔ توضیحی یک قانون — برای SignalReasonBreakdown (چه trigger شده باشد چه نه). */
+export function ruleLabel(rule: string): string {
+  return RULE_TEMPLATES[rule] ?? `قانون «${rule}»`;
 }

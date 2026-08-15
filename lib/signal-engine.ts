@@ -40,6 +40,12 @@ export interface SignalEvaluation {
   suppressed: boolean;
 }
 
+/** آستانه‌های صدور سیگنال — export شده تا UI (مثل SignalReasonBreakdown) بتواند «امتیاز از
+ * چند» را نشان دهد، بدون اینکه رفتار evaluateSignal پایین تغییر کند. */
+export const BUY_THRESHOLD_NORMAL = 40;
+export const BUY_THRESHOLD_ABNORMAL = 60;
+export const SELL_THRESHOLD = -40;
+
 function compare(value: number, op: ComparisonOp, target: number): boolean {
   switch (op) {
     case ">":
@@ -120,8 +126,8 @@ export function evaluateSignal(
   }
 
   const score = Math.max(-100, Math.min(100, rawScore));
-  const buyThreshold = marketRegimeNormal ? 40 : 60;
-  const sellThreshold = -40;
+  const buyThreshold = marketRegimeNormal ? BUY_THRESHOLD_NORMAL : BUY_THRESHOLD_ABNORMAL;
+  const sellThreshold = SELL_THRESHOLD;
 
   let direction: "buy" | "sell" | "none" = "none";
   if (score >= buyThreshold) direction = "buy";

@@ -47,7 +47,7 @@ export default async function SymbolPage({
       .limit(400),
     supabase
       .from("signals")
-      .select("id, direction, score, reasons, created_at")
+      .select("id, direction, score, reasons, regime, created_at")
       .eq("symbol", symbol)
       .order("created_at", { ascending: false })
       .limit(30),
@@ -83,6 +83,8 @@ export default async function SymbolPage({
   const signalHistoryItems: SignalHistoryItem[] = signals.map((s) => ({
     id: s.id,
     direction: s.direction,
+    score: s.score,
+    regime: s.regime,
     createdAt: s.created_at,
     reasons: s.reasons,
   }));
