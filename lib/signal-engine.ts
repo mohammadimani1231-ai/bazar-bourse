@@ -21,6 +21,9 @@ export interface SignalContext {
   history: Record<string, (number | null)[]>;
   /** نماد الان در صف خرید قفل‌شده (bid1_price == price_max). */
   queueLocked: boolean;
+  /** نماد الان در صف فروش قفل‌شده (ask1_price == price_min) — فشار فروش شدید/limit-down.
+   * خرید در این وضعیت هم باید suppress شود، دقیقاً مثل قفل صف خرید. */
+  queueLockedSell: boolean;
 }
 
 export interface RuleEvaluation {
@@ -97,7 +100,8 @@ function evaluateRule(
 /**
  * جمع وزن‌دار قوانین فعال → score در بازهٔ [-100, +100]. آستانهٔ خرید در رژیم عادی +۴۰،
  * در رژیم غیرعادی +۶۰ (قید CLAUDE.md: گیت رژیم بازار)؛ آستانهٔ فروش همیشه −۴۰.
- * گیت صف: اگر نماد در صف خرید قفل‌شده باشد، خرید suppress می‌شود (عملاً غیرقابل‌اجراست).
+ * گیت صف: اگر نماد در صف خرید قفل‌شده باشد (نمی‌شود خرید)، یا در صف فروش قفل‌شده باشد
+ * (فشار فروش شدید/limit-down)، خرید suppress می‌شود.
  */
 export function evaluateSignal(
   rules: SignalRule[],
@@ -123,7 +127,7 @@ export function evaluateSignal(
   if (score >= buyThreshold) direction = "buy";
   else if (score <= sellThreshold) direction = "sell";
 
-  const suppressed = direction === "buy" && ctx.queueLocked;
+  const suppressed = direction === "buy" && (ctx.queueLocked || ctx.queueLockedSell);
 
   return { score, direction: suppressed ? "none" : direction, reasons, suppressed };
 }

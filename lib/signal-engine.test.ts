@@ -7,6 +7,7 @@ function baseContext(overrides: Partial<SignalContext> = {}): SignalContext {
     metrics: {},
     history: {},
     queueLocked: false,
+    queueLockedSell: false,
     ...overrides,
   };
 }
@@ -151,12 +152,26 @@ describe("evaluateSignal — آستانه‌ها و جهت", () => {
     expect(evaluateSignal([bigRule], ctx).score).toBe(100);
   });
 
-  it("گیت صف: سیگنال خرید در نماد صف‌قفل‌شده suppress می‌شود", () => {
+  it("گیت صف: سیگنال خرید در نماد صف‌خریدقفل‌شده suppress می‌شود", () => {
     const ctx = baseContext({ metrics: { x: 1 }, queueLocked: true });
     const result = evaluateSignal([buyRule], ctx);
     expect(result.direction).toBe("none");
     expect(result.suppressed).toBe(true);
     expect(result.score).toBe(50); // score خودش دستکاری نمی‌شود، فقط جهت suppress می‌شود
+  });
+
+  it("گیت صف: سیگنال خرید در نماد صف‌فروش‌قفل‌شده هم suppress می‌شود (فشار فروش شدید)", () => {
+    const ctx = baseContext({ metrics: { x: 1 }, queueLockedSell: true });
+    const result = evaluateSignal([buyRule], ctx);
+    expect(result.direction).toBe("none");
+    expect(result.suppressed).toBe(true);
+  });
+
+  it("سیگنال فروش با قفل صف خرید/فروش suppress نمی‌شود (گیت فقط برای خرید است)", () => {
+    const ctx = baseContext({ metrics: { x: 1 }, queueLocked: true, queueLockedSell: true });
+    const result = evaluateSignal([sellRule], ctx);
+    expect(result.direction).toBe("sell");
+    expect(result.suppressed).toBe(false);
   });
 
   it("reasons شامل تفکیک کامل هر قانون است (نه جعبه‌سیاه)", () => {

@@ -194,6 +194,11 @@ function isQueueLocked(candle: CandleRow): boolean {
   return candle.close != null && candle.high != null && candle.close === candle.high;
 }
 
+/** پروکسی صف فروش قفل‌شده روی کندل روزانه (بدون bid/ask تاریخی) — هم‌ساختار isQueueLocked بالا. */
+function isQueueLockedSell(candle: CandleRow): boolean {
+  return candle.close != null && candle.low != null && candle.close === candle.low;
+}
+
 interface Trade {
   symbol: string;
   signalDate: string;
@@ -591,6 +596,7 @@ async function main() {
         },
         history: { money_flow: moneyFlowHistory },
         queueLocked: isQueueLocked(last),
+        queueLockedSell: isQueueLockedSell(last),
       };
 
       const evaluation = evaluateSignal(rulesRaw, ctx, true);

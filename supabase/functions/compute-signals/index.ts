@@ -122,6 +122,15 @@ Deno.serve(async () => {
         .limit(1)
         .maybeSingle();
 
+      const { data: queueSellRow } = await client
+        .from("tabloo_metrics")
+        .select("value")
+        .eq("symbol", symbol)
+        .eq("metric", "queue_locked_sell")
+        .order("captured_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       const ctx: SignalContext = {
         series: {
           EMA9: { current: ema9[n - 1], previous: ema9[n - 2] ?? null },
@@ -139,6 +148,7 @@ Deno.serve(async () => {
           money_flow: moneyFlowHistory,
         },
         queueLocked: queueRow?.value === 1,
+        queueLockedSell: queueSellRow?.value === 1,
       };
 
       const evaluation = evaluateSignal(rules, ctx, marketRegimeNormal);
