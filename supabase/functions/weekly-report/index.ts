@@ -1,6 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { sendTelegramMessage } from "../_shared/telegram.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
 import { downsampleToDaily, type TimestampedValue } from "../../../lib/downsampleDaily.ts";
 import { buildEqualWeightIndex, type DatedValue } from "../../../lib/syntheticIndex.ts";
@@ -159,12 +160,27 @@ Deno.serve(async () => {
     );
 
     // ===== ۳. جریان پول =====
-    const [{ data: watchlist }, { data: moneyFlowSymbolRaw }, { data: moneyFlowIndustryRaw }, { data: whaleRaw }, { data: codeToCodeRaw }] = await Promise.all([
+    // صفحه‌بندی‌شده (سقف ۱۰۰۰ ردیفی PostgREST) — money_flow یک هفته کامل (۴۵ نماد × چند
+    // چرخه/روز) به‌راحتی از ۱۰۰۰ رد می‌شود؛ بقیه فعلاً کوچک‌ترند ولی همان الگو برای یکنواختی.
+    const fetchWeeklyTablooMetric = (metric: string, onlyValue1: boolean) =>
+      fetchAllPages(async (from, to) => {
+        const base = client
+          .from("tabloo_metrics")
+          .select("symbol, value, captured_at")
+          .eq("metric", metric)
+          .gte("captured_at", weekStartIso);
+        const filtered = onlyValue1 ? base.eq("value", 1) : base;
+        const { data, error } = await filtered.order("captured_at", { ascending: true }).range(from, to);
+        if (error) throw error;
+        return data ?? [];
+      });
+
+    const [{ data: watchlist }, moneyFlowSymbolRaw, moneyFlowIndustryRaw, whaleRaw, codeToCodeRaw] = await Promise.all([
       client.from("watchlist").select("symbol, industry"),
-      client.from("tabloo_metrics").select("symbol, value, captured_at").eq("metric", "money_flow").gte("captured_at", weekStartIso),
-      client.from("tabloo_metrics").select("symbol, value, captured_at").eq("metric", "money_flow_industry").gte("captured_at", weekStartIso),
-      client.from("tabloo_metrics").select("symbol, value, captured_at").eq("metric", "whale").eq("value", 1).gte("captured_at", weekStartIso),
-      client.from("tabloo_metrics").select("symbol, value, captured_at").eq("metric", "code_to_code").eq("value", 1).gte("captured_at", weekStartIso),
+      fetchWeeklyTablooMetric("money_flow", false),
+      fetchWeeklyTablooMetric("money_flow_industry", false),
+      fetchWeeklyTablooMetric("whale", true),
+      fetchWeeklyTablooMetric("code_to_code", true),
     ]);
     const moneyFlowBySymbol = new Map<string, number>();
     for (const row of moneyFlowSymbolRaw ?? []) {
@@ -313,13 +329,18 @@ Deno.serve(async () => {
 
     // ===== ۶. کارنامهٔ موتور سیگنال =====
     async function ruleStatsForWindow(sinceIso: string, untilIso: string): Promise<RuleStat[]> {
-      const { data } = await client
-        .from("signals")
-        .select("score, reasons, signal_outcomes(return_5d)")
-        .gte("created_at", sinceIso)
-        .lt("created_at", untilIso)
-        .limit(1000);
-      const rows = (data ?? []) as unknown as { reasons: { rule: string; triggered: boolean }[]; signal_outcomes: { return_5d: number | null } | { return_5d: number | null }[] | null }[];
+      const data = await fetchAllPages(async (from, to) => {
+        const { data, error } = await client
+          .from("signals")
+          .select("score, reasons, signal_outcomes(return_5d)")
+          .gte("created_at", sinceIso)
+          .lt("created_at", untilIso)
+          .order("created_at", { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        return data ?? [];
+      });
+      const rows = data as unknown as { reasons: { rule: string; triggered: boolean }[]; signal_outcomes: { return_5d: number | null } | { return_5d: number | null }[] | null }[];
       const evaluated = rows
         .map((r) => {
           const outcome = Array.isArray(r.signal_outcomes) ? r.signal_outcomes[0] : r.signal_outcomes;

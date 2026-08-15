@@ -1,6 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkMarketOpen } from "../_shared/marketStatus.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
 import type { QuoteRow } from "../../../lib/transforms/quote.ts";
 import type { DailyCandleRow } from "../../../lib/transforms/candle.ts";
@@ -56,15 +57,21 @@ Deno.serve(async () => {
     const symbols = (watchlist ?? []).map((w) => w.symbol as string);
     const industryOf = new Map((watchlist ?? []).map((w) => [w.symbol as string, w.industry as string | null]));
 
-    // امروز تا الان — برای متریک‌های لحظه‌ای (آخرین اسنپ‌شات هر نماد) و سری زمانی سرانه بازار
-    const { data: todayQuotesRaw, error: quotesError } = await client
-      .from("quotes")
-      .select("*")
-      .gte("captured_at", dayStartUtc)
-      .lte("captured_at", capturedAt)
-      .order("captured_at", { ascending: true });
-    if (quotesError) throw quotesError;
-    const todayQuotes = (todayQuotesRaw ?? []) as QuoteRow[];
+    // امروز تا الان — برای متریک‌های لحظه‌ای (آخرین اسنپ‌شات هر نماد) و سری زمانی سرانه بازار.
+    // صفحه‌بندی‌شده (سقف ۱۰۰۰ ردیفی PostgREST): ۴۵ نماد × هر ~۲ دقیقه یعنی حدود ۵۰ دقیقه بعد
+    // از باز شدن بازار این عدد رد می‌شد و `.select()` بدون `.range()` بی‌صدا در همان لحظه فریز
+    // می‌شد — دقیقاً همان کلاس باگی که فاز ۳/۴ باعث fetchAllPages شدند.
+    const todayQuotes = await fetchAllPages<QuoteRow>(async (from, to) => {
+      const { data, error } = await client
+        .from("quotes")
+        .select("*")
+        .gte("captured_at", dayStartUtc)
+        .lte("captured_at", capturedAt)
+        .order("captured_at", { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return (data ?? []) as QuoteRow[];
+    });
 
     const bySymbol = new Map<string, QuoteRow[]>();
     for (const q of todayQuotes) {

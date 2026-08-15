@@ -1,6 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkMarketOpen } from "../_shared/marketStatus.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 import { queueState } from "../../../lib/tabloo.ts";
 import { atr } from "../../../lib/indicators.ts";
 import { calculatePositionSize, suggestStopLossFromAtr } from "../../../lib/position-sizing.ts";
@@ -313,12 +314,18 @@ Deno.serve(async () => {
 
     // ── ۲. خروج از پوزیشن‌های باز ─────────────────────────────────────────────
     const sinceIso = new Date(Date.now() - SIGNAL_LOOKBACK_MS).toISOString();
-    const { data: recentSells } = await client
-      .from("signals")
-      .select("symbol")
-      .eq("direction", "sell")
-      .gte("created_at", sinceIso);
-    const sellSignalSymbols = new Set((recentSells ?? []).map((s) => s.symbol as string));
+    const recentSells = await fetchAllPages(async (from, to) => {
+      const { data, error } = await client
+        .from("signals")
+        .select("symbol")
+        .eq("direction", "sell")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return data ?? [];
+    });
+    const sellSignalSymbols = new Set(recentSells.map((s) => s.symbol as string));
 
     for (const pos of [...openPositions]) {
       // خروج هم روی کوت کهنه ممنوع است — نمی‌شود با قیمت دیروز فروخت. پوزیشن باز می‌ماند
@@ -379,13 +386,17 @@ Deno.serve(async () => {
     }
 
     // ── ۳. سیگنال‌های خرید جدید ───────────────────────────────────────────────
-    const { data: recentBuys, error: buysError } = await client
-      .from("signals")
-      .select("id, symbol, reasons, created_at")
-      .eq("direction", "buy")
-      .gte("created_at", sinceIso)
-      .order("created_at", { ascending: true });
-    if (buysError) throw buysError;
+    const recentBuys = await fetchAllPages(async (from, to) => {
+      const { data, error } = await client
+        .from("signals")
+        .select("id, symbol, reasons, created_at")
+        .eq("direction", "buy")
+        .gte("created_at", sinceIso)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return data ?? [];
+    });
 
     const candidateIds = (recentBuys ?? []).map((s) => s.id as number);
     const { data: alreadyRows } = await client

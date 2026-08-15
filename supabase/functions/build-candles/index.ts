@@ -1,6 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkTodayWasTradingDay } from "../_shared/marketStatus.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
 import { buildDailyCandle, buildOhlcFromSeries, type SeriesPoint } from "../../../lib/transforms/candle.ts";
 import type { QuoteRow } from "../../../lib/transforms/quote.ts";
@@ -59,12 +60,19 @@ Deno.serve(async () => {
 
     const { date, startUtc, endUtc } = tehranDayBounds(new Date());
 
-    const { data: quotes, error } = await client
-      .from("quotes")
-      .select("*")
-      .gte("captured_at", startUtc)
-      .lt("captured_at", endUtc);
-    if (error) throw error;
+    // صفحه‌بندی‌شده (سقف ۱۰۰۰ ردیفی PostgREST) — بدونش close/final_price/adjusted_close هر
+    // نماد از آخرین ردیف *داخل همان ۱۰۰۰ تای اول* ساخته می‌شد، نه آخرین قیمت واقعی روز.
+    const quotes = await fetchAllPages<QuoteRow>(async (from, to) => {
+      const { data, error } = await client
+        .from("quotes")
+        .select("*")
+        .gte("captured_at", startUtc)
+        .lt("captured_at", endUtc)
+        .order("captured_at", { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return (data ?? []) as QuoteRow[];
+    });
 
     const bySymbol = new Map<string, QuoteRow[]>();
     for (const q of (quotes ?? []) as QuoteRow[]) {

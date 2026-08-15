@@ -1,5 +1,6 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 
 const LOOKBACK_DAYS = 40;
 
@@ -20,12 +21,16 @@ Deno.serve(async () => {
 
   try {
     const lookbackStart = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
-    const { data: recentSignals, error: signalsError } = await client
-      .from("signals")
-      .select("id, symbol, created_at")
-      .gte("created_at", lookbackStart)
-      .order("created_at", { ascending: true });
-    if (signalsError) throw signalsError;
+    const recentSignals = await fetchAllPages(async (from, to) => {
+      const { data, error } = await client
+        .from("signals")
+        .select("id, symbol, created_at")
+        .gte("created_at", lookbackStart)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      if (error) throw error;
+      return data ?? [];
+    });
 
     const signalIds = (recentSignals ?? []).map((s) => s.id as number);
     const { data: existingOutcomes, error: outcomesError } = await client
