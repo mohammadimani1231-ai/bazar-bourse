@@ -1,5 +1,6 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
+import { withJwtSkewRetry } from "../_shared/jwtSkewRetry.ts";
 import { fetchYahooQuote } from "../../../lib/data-sources/yahoo.ts";
 import { yahooQuoteToGlobalQuoteRow, type GlobalQuoteRow } from "../../../lib/transforms/globalQuote.ts";
 
@@ -40,8 +41,23 @@ Deno.serve(async () => {
   });
 
   if (rows.length > 0) {
-    const { error: insertError } = await client.from("global_quotes").insert(rows);
-    if (insertError) errors.push(`insert: ${insertError.message}`);
+    // «JWT issued at future» — اسکیوی گذرای ساعت زیر بار Supabase (مستند در CLAUDE.md، همان
+    // چیزی که evaluate-alerts هم می‌گرفت)، نه یک secret اشتباه — همان createServiceClient
+    // مشترک با بقیهٔ توابع است و فقط گاهی (~۳٪ اجراها) رخ می‌دهد. PGRST303 یک رد شدن در لایهٔ
+    // auth PostgREST است (قبل از رسیدن درخواست به دیتابیس)، پس retry ذاتاً امن است؛ upsert
+    // (به‌جای insert) روی همان (asset, captured_at) هم دفاع در عمق است، مستقل از این استدلال —
+    // اگر روزی retry دیگری (مثلاً روی یک خطای شبکهٔ نامعلوم) اضافه شد، باز هم duplicate نمی‌سازد.
+    try {
+      await withJwtSkewRetry(async () => {
+        const { error: insertError } = await client
+          .from("global_quotes")
+          .upsert(rows, { onConflict: "asset,captured_at" });
+        if (insertError) throw insertError;
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      errors.push(`insert: ${message}`);
+    }
   }
 
   const latencyMs = Math.round(performance.now() - start);

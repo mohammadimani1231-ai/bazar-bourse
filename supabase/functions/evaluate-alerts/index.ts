@@ -1,7 +1,8 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { sendTelegramMessage } from "../_shared/telegram.ts";
-import { tensionConditionMet, isCooldownElapsed, type AlertCondition } from "../../../lib/alertEngine.ts";
+import { withJwtSkewRetry } from "../_shared/jwtSkewRetry.ts";
+import { tensionConditionMet, isCooldownElapsed, mapActionRuleRow, type AlertRule, type AlertRuleDbRow } from "../../../lib/alertEngine.ts";
 import { formatSignalAlert, formatTensionAlert, formatPipelineDownAlert } from "../../../lib/alertFormat.ts";
 
 const SITE_URL = Deno.env.get("SITE_URL") ?? "https://bazar-bourse.vercel.app";
@@ -9,40 +10,17 @@ const SIGNAL_LOOKBACK_FALLBACK_MIN = 15; // اگر این قانون هنوز ه
 
 type Client = ReturnType<typeof createServiceClient>;
 
-/**
- * سر هر ساعت که چند کرون هم‌زمان شلیک می‌کنند، PostgREST گاهی خطای گذرای
- * `PGRST303 JWT issued at future` (اسکیوی ساعت زیر بار، سمت زیرساخت Supabase) می‌دهد —
- * مستند در CLAUDE.md. یک بار retry بعد از تأخیر کوتاه معمولاً کافی است چون خودِ اسکیو گذراست.
- */
-async function withJwtSkewRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    const code = err && typeof err === "object" ? (err as { code?: string }).code : undefined;
-    if (code !== "PGRST303") throw err;
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    return await fn();
-  }
-}
-
-async function fetchActionRules(client: Client): Promise<RuleRow[]> {
+async function fetchActionRules(client: Client): Promise<AlertRule[]> {
   const { data, error } = await client
     .from("alert_rules")
     .select("id, name, condition, severity, fire_policy, cooldown_minutes, enabled")
     .eq("severity", "action")
     .eq("enabled", true);
   if (error) throw error;
-  return (data ?? []) as RuleRow[];
-}
-
-interface RuleRow {
-  id: number;
-  name: string;
-  condition: AlertCondition;
-  severity: string;
-  fire_policy: "once" | "once_per_bar_close" | "cooldown";
-  cooldown_minutes: number | null;
-  enabled: boolean;
+  // Supabase ستون‌های خام Postgres (snake_case) را برمی‌گرداند؛ mapActionRuleRow آن را به
+  // AlertRule (camelCase) تبدیل می‌کند — بدون این، rule.firePolicy همیشه undefined بود و
+  // isCooldownElapsed همیشه true برمی‌گرداند (کول‌داون عملاً غیرفعال، باگ واقعی کشف‌شده).
+  return ((data ?? []) as AlertRuleDbRow[]).map(mapActionRuleRow);
 }
 
 /**
