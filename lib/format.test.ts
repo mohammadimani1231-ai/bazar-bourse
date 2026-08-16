@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatFaNumber, formatFaPercent, formatFaCompactRial } from "./format.ts";
+import { formatFaNumber, formatFaPercent, formatFaCompactRial, toToman } from "./format.ts";
 
 describe("formatFaNumber", () => {
   it("جداکنندهٔ هزارگان و ارقام فارسی", () => {
@@ -44,5 +44,17 @@ describe("formatFaCompactRial", () => {
 
   it("زیر یک میلیون بدون واحد", () => {
     expect(formatFaCompactRial(1200)).toBe("۱٬۲۰۰");
+  });
+});
+
+describe("toToman", () => {
+  it("ریال را ÷۱۰ می‌کند", () => {
+    expect(toToman(1_862_000)).toBe(186_200);
+  });
+
+  it("null/undefined/NaN را دست‌نخورده رد می‌کند", () => {
+    expect(toToman(null)).toBeNull();
+    expect(toToman(undefined)).toBeNull();
+    expect(toToman(NaN)).toBeNull();
   });
 });
