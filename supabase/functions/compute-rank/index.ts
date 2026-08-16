@@ -2,33 +2,25 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkTodayWasTradingDay } from "../_shared/marketStatus.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 import { tehranDayBounds } from "../../../lib/time/tehranDay.ts";
 import { computeRawScore, percentileRank } from "../../../lib/composite-rank.ts";
-
-const PAGE_SIZE = 1000;
 
 async function fetchAllCloses(
   client: SupabaseClient,
   symbol: string,
 ): Promise<number[]> {
-  const closes: number[] = [];
-  let from = 0;
-  for (;;) {
+  const rows = await fetchAllPages<{ adjusted_close: number | null }>(async (from, to) => {
     const { data, error } = await client
       .from("daily_candles")
       .select("adjusted_close")
       .eq("symbol", symbol)
       .order("date", { ascending: true })
-      .range(from, from + PAGE_SIZE - 1);
+      .range(from, to);
     if (error) throw error;
-    if (!data || data.length === 0) break;
-    for (const row of data) {
-      if (row.adjusted_close != null) closes.push(row.adjusted_close as number);
-    }
-    if (data.length < PAGE_SIZE) break;
-    from += PAGE_SIZE;
-  }
-  return closes;
+    return (data ?? []) as { adjusted_close: number | null }[];
+  });
+  return rows.map((r) => r.adjusted_close).filter((v): v is number => v != null);
 }
 
 /**
