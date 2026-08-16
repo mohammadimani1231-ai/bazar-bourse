@@ -1,6 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { sendTelegramMessage } from "../_shared/telegram.ts";
+import { fetchAllPages } from "../../../lib/supabase/fetchAllPages.ts";
 import { formatDigest, type DigestGroup } from "../../../lib/alertFormat.ts";
 import type { AlertCondition } from "../../../lib/alertEngine.ts";
 
@@ -63,14 +64,22 @@ Deno.serve(async (req) => {
           ? new Date(Date.now() - overrideSinceMinutes * 60_000).toISOString()
           : (lastLog?.fired_at ?? new Date(Date.now() - DIGEST_LOOKBACK_FALLBACK_MIN * 60_000).toISOString());
 
-      const { data: rows } = await client
-        .from("tabloo_metrics")
-        .select("symbol")
-        .eq("metric", metric)
-        .eq("value", 1)
-        .gt("captured_at", sinceIso);
+      // اجرای دستی می‌تواند sinceMinutes بزرگ بدهد (مثلاً کل یک جلسهٔ معاملاتی) — روی یک متریک
+      // پرتکرار (مثل suspicious_volume) این راحت از سقف ۱۰۰۰ ردیفی PostgREST رد می‌شود.
+      const rows = await fetchAllPages<{ symbol: string }>(async (from, to) => {
+        const { data, error } = await client
+          .from("tabloo_metrics")
+          .select("symbol")
+          .eq("metric", metric)
+          .eq("value", 1)
+          .gt("captured_at", sinceIso)
+          .order("captured_at", { ascending: true })
+          .range(from, to);
+        if (error) throw error;
+        return (data ?? []) as { symbol: string }[];
+      });
 
-      const symbols = [...new Set((rows ?? []).map((r) => r.symbol as string))];
+      const symbols = [...new Set(rows.map((r) => r.symbol))];
       groups.push({ metric, label: metricLabel(metric), symbols });
       if (symbols.length > 0) ruleIdsWithData.push(rule.id);
     }
