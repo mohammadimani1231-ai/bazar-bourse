@@ -1,7 +1,7 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
 import { checkMarketOpenLight } from "../_shared/marketStatus.ts";
-import { fetchBrsApiIndex, fetchBrsApiAllSymbols } from "../../../lib/data-sources/brsapi.ts";
+import { fetchBrsApiIndex } from "../../../lib/data-sources/brsapi.ts";
 
 /**
  * خلاصهٔ زندهٔ شاخص کل/هم‌وزن + ارزش کل بازار (Tsetmc/Index.php?type=1) — رجوع به CLAUDE.md
@@ -23,11 +23,9 @@ Deno.serve(async () => {
 
     const brsApiKey = Deno.env.get("BRSAPI_KEY") ?? "";
     const summary = await fetchBrsApiIndex(brsApiKey);
-    const allSymbols = await fetchBrsApiAllSymbols(brsApiKey);
 
-    // Index endpoint tval نادرست است (شامل فرابورس/بازارهای دیگر).
-    // ارزش معاملات واقعی = جمع tval همهٔ نمادهای بورس از AllSymbols.
-    const correctTval = allSymbols.reduce((sum: number, s: any) => sum + (s.tval || 0), 0);
+    // ارزش معاملات بورس تهران (تکی، بدون فرابورس)
+    // فرابورس (type=2) برای فاز بعدی است
 
     const { error: insertError } = await client.from("market_index_quotes").insert({
       index_value: summary.index,
@@ -35,7 +33,7 @@ Deno.serve(async () => {
       index_equal_weight: summary.index_equalWeight,
       index_equal_weight_change: summary.index_equalWeight_change,
       market_value: summary.mv,
-      total_trade_value: correctTval,
+      total_trade_value: summary.tval,
       total_trade_count: summary.tno,
       total_trade_volume: summary.tvol,
       market_state: summary.state,
