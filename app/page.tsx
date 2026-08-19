@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
 import { tehranDayBounds } from "@/lib/time/tehranDay.ts";
+import { toToman } from "@/lib/format.ts";
 import { isMarketOpen } from "@/lib/market-status.ts";
 import { GlobalTickerBar, type TickerItem } from "@/components/GlobalTickerBar";
 import { IndexSummary } from "@/components/IndexSummary";
@@ -158,7 +159,7 @@ export default async function OverviewPage() {
     .filter((x): x is TreemapItem => x !== null);
 
   // ارزش کل معاملات واقعی بازار (کل بورس، نه فقط ۴۵ نماد واچ‌لیست) — از همان تیک زندهٔ شاخص.
-  const totalMarketValue = marketIndexLatest?.total_trade_value ?? null;
+  const totalMarketValue = toToman(marketIndexLatest?.total_trade_value ?? null);
   const marketIndexCapturedAt = marketIndexLatest?.captured_at ?? null;
 
   const industryFlowMap = new Map<string, number>();
