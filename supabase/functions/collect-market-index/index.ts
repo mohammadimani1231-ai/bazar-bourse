@@ -1,6 +1,6 @@
 import { createServiceClient } from "../_shared/supabaseClient.ts";
 import { logHealth } from "../_shared/health.ts";
-import { checkMarketOpenLight } from "../_shared/marketStatus.ts";
+import { checkMarketOpen } from "../_shared/marketStatus.ts";
 import { fetchBrsApiIndex } from "../../../lib/data-sources/brsapi.ts";
 
 /**
@@ -12,7 +12,7 @@ Deno.serve(async () => {
   const client = createServiceClient();
 
   try {
-    const marketStatus = await checkMarketOpenLight(client);
+    const marketStatus = await checkMarketOpen(client);
     if (!marketStatus.open) {
       const latencyMs = Math.round(performance.now() - start);
       await logHealth(client, "collect-market-index", "market_closed", marketStatus.reason, latencyMs);
