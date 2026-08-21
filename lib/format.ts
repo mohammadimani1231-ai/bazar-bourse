@@ -14,15 +14,16 @@ export function formatFaPercent(value: number | null | undefined, fractionDigits
   })}٪`;
 }
 
+import { rialToToman } from "./units.ts";
+
 // دلار آزاد/طلای ۱۸/سکه امامی در global_quotes همیشه به ریال ذخیره می‌شوند (رجوع
 // lib/transforms/globalQuote.ts) ولی کاربر ایرانی تومان می‌خواند — این تنها نقطهٔ تبدیل باشد،
-// هرجای دیگری که همین سه دارایی را خام نمایش می‌دهد باید از همین تابع استفاده کند، نه ÷۱۰ محلی.
-const RIAL_TO_TOMAN = 10;
+// از lib/units.ts::rialToToman استفاده می‌کند.
 
 /** ریال ذخیره‌شده در global_quotes (دلار آزاد/طلای ۱۸/سکه امامی) را به تومان تبدیل می‌کند. */
 export function toToman(rial: number | null | undefined): number | null {
   if (rial === null || rial === undefined || Number.isNaN(rial)) return null;
-  return rial / RIAL_TO_TOMAN;
+  return rialToToman(rial);
 }
 
 /** مبلغ ریالی فشرده، مثل «۱۲۳٫۴ میلیارد» یا «۵۶۰ میلیون» */
