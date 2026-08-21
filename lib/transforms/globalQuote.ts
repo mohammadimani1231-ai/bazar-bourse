@@ -37,11 +37,11 @@ const CURRENCY_ASSET_MAP: Record<string, string> = {
 };
 
 // آرایهٔ gold. از Gold_Currency.php واقعاً به ریال است (سازگار با benchmark_candles، تأیید‌شده
-// روی دادهٔ زنده) ولی آرایهٔ currency. همان endpoint به تومان است — یک ناسازگاری واقعی در خود
-// BrsApi، نه اشتباه ما. بدون این ×۱۰، usd_irr در global_quotes با usd_irr در benchmark_candles
-// (که واحدش ریال است) ۱۰ برابر اختلاف می‌گیرد — دقیقاً همین باگ در فاز ۵ حین ساخت tension_index
-// کشف شد (z-score غیرممکن ۷۴ داد چون یک سری تومان با یک سری ریال مقایسه می‌شد).
-const TOMAN_TO_RIAL = 10;
+// روی دادهٔ زنده) ولی آرایهٔ currency. همان endpoint به هزارتومان است (نه تومان یا ریال) — یک
+// ناسازگاری واقعی در خود BrsApi، نه اشتباه ما. تومان: تومان → هزارتومان × ۱۰۰۰ (= ریال).
+// بدون این ×۱۰۰۰، usd_irr در global_quotes با usd_irr در benchmark_candles (که واحدش ریال است)
+// ۱۰۰۰ برابر اختلاف می‌گیرد — دقیقاً همین باگ در فاز ۵ حین ساخت tension_index کشف شد.
+const KILO_TOMAN_TO_RIAL = 1000;
 
 /** پاسخ Gold_Currency.php را فقط برای دارایی‌های موردنیاز ما به سطر global_quotes (همیشه ریال) تبدیل می‌کند. */
 export function brsApiGoldCurrencyToGlobalQuoteRows(
@@ -66,7 +66,7 @@ export function brsApiGoldCurrencyToGlobalQuoteRows(
     if (!asset) continue;
     rows.push({
       asset,
-      price: typeof item.price === "number" ? item.price * TOMAN_TO_RIAL : null,
+      price: typeof item.price === "number" ? item.price * KILO_TOMAN_TO_RIAL : null,
       change_pct: typeof item.change_percent === "number" ? item.change_percent : null,
       captured_at: capturedAt,
     });
