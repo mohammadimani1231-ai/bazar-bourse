@@ -4,6 +4,8 @@ import { distanceFromHigh, THREE_MONTH_TRADING_DAYS, ONE_YEAR_TRADING_DAYS } fro
 import { findContinuityGap } from "@/lib/priceContinuity.ts";
 import type { ScreenerRow } from "@/lib/screenerFilters.ts";
 import { ScreenerClient, type PresetRow } from "@/components/ScreenerClient";
+import { ChatAssistant } from "@/components/ChatAssistant";
+import { getScreenerPageContext } from "@/lib/chat/context.ts";
 
 // دیتای زنده (قیمت/پول/سیگنال) — نباید در build-time prerender و freeze شود
 export const dynamic = "force-dynamic";
@@ -164,9 +166,27 @@ export default async function ScreenerPage() {
 
   const presets: PresetRow[] = (presetsRaw ?? []).map((p) => ({ id: p.id, name: p.name, filters: p.filters }));
 
+  // Context برای ChatAssistant
+  const screenerContext = await getScreenerPageContext(null, rows);
+
+  const suggestedQuestions = [
+    "این فیلتر دقیقاً چی رو نشون می‌ده؟",
+    "چرا این سهم‌ها توی نتیجهٔ فیلتر هستن؟",
+    "نتایج این فیلتر نسبت به دیروز چه تغییری کرده؟",
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      <ScreenerClient rows={rows} industries={[...new Set(symbols.map((s) => industryOf.get(s)!))]} presets={presets} />
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-4">
+      <div className="lg:col-span-3">
+        <ScreenerClient rows={rows} industries={[...new Set(symbols.map((s) => industryOf.get(s)!))]} presets={presets} />
+      </div>
+      <div className="lg:col-span-1">
+        <ChatAssistant
+          pageContext={screenerContext ? JSON.stringify(screenerContext) : null}
+          pageName="اسکرینر"
+          suggestedQuestions={suggestedQuestions}
+        />
+      </div>
     </div>
   );
 }
