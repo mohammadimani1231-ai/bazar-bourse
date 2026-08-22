@@ -20,8 +20,8 @@ const UNIT_CONFIG: Record<string, { unit: string; toDisplay: (v: number | null) 
   dxy: { unit: "امتیاز", toDisplay: (v) => v, decimals: 2 },
   sp500: { unit: "امتیاز", toDisplay: (v) => v, decimals: 0 },
   usd_irr: { unit: "تومان", toDisplay: toToman, decimals: 0 },
-  gold_18k: { unit: "تومان", toDisplay: toToman, decimals: 0 },
-  coin_emami: { unit: "تومان", toDisplay: toToman, decimals: 0 },
+  gold_18k: { unit: "تومان", toDisplay: (v) => v, decimals: 0 },
+  coin_emami: { unit: "تومان", toDisplay: (v) => v, decimals: 0 },
 };
 
 // گروه‌بندی بصری: ۵ دارایی جهانی (دلاری/امتیازی) از ۳ دارایی داخلی (تومانی) با یک جداکنندهٔ
