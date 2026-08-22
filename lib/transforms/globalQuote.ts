@@ -1,6 +1,6 @@
 import type { YahooQuote } from "../data-sources/yahoo.ts";
 import type { BrsApiGoldCurrencyResponse } from "../data-sources/brsapi.ts";
-import { kiloTomanToRial, tomanToRial } from "../units.ts";
+import { kiloTomanToRial } from "../units.ts";
 
 export interface GlobalQuoteRow {
   asset: string;
@@ -37,11 +37,11 @@ const CURRENCY_ASSET_MAP: Record<string, string> = {
   USD: "usd_irr",
 };
 
-// آرایهٔ gold. از Gold_Currency.php به تومان است، بدون برچسب واحد — ناسازگاری واقعی در خود
-// BrsApi. تبدیل: tomanToRial() (×۱۰) از lib/units.ts. آرایهٔ currency. همان endpoint به
-// هزارتومان است — تبدیل: kiloTomanToRial() (×۱۰۰۰) از lib/units.ts. بدون این تبدیل‌ها،
-// هر دو با global_quotes (که همیشه ریال است) عدد غلط می‌گیرند — دقیقاً همین باگ
-// در فاز ۵ حین ساخت tension_index کشف شد.
+// آرایهٔ gold. از Gold_Currency.php واقعاً به ریال است (سازگار با benchmark_candles، تأیید‌شده
+// روی دادهٔ زنده) ولی آرایهٔ currency. همان endpoint به هزارتومان است (نه تومان یا ریال) — یک
+// ناسازگاری واقعی در خود BrsApi، نه اشتباه ما. تبدیل: kiloTomanToRial() از lib/units.ts.
+// بدون این تبدیل، usd_irr در global_quotes با usd_irr در benchmark_candles (که واحدش ریال است)
+// ۱۰۰۰ برابر اختلاف می‌گیرد — دقیقاً همین باگ در فاز ۵ حین ساخت tension_index کشف شد.
 
 /** پاسخ Gold_Currency.php را فقط برای دارایی‌های موردنیاز ما به سطر global_quotes (همیشه ریال) تبدیل می‌کند. */
 export function brsApiGoldCurrencyToGlobalQuoteRows(
@@ -55,7 +55,7 @@ export function brsApiGoldCurrencyToGlobalQuoteRows(
     if (!asset) continue;
     rows.push({
       asset,
-      price: typeof item.price === "number" ? tomanToRial(item.price) : null,
+      price: typeof item.price === "number" ? item.price : null,
       change_pct: typeof item.change_percent === "number" ? item.change_percent : null,
       captured_at: capturedAt,
     });
