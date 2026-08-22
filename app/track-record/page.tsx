@@ -8,6 +8,8 @@ import { renderMultiLineChartSvg } from "@/lib/reportCharts.ts";
 import { formatFaNumber, formatFaPercent } from "@/lib/format.ts";
 import { formatJalaliDay } from "@/lib/jalali.ts";
 import { EmptyState } from "@/components/EmptyState";
+import { ChatAssistant } from "@/components/ChatAssistant";
+import { getPerformancePageContext } from "@/lib/chat/context.ts";
 
 // دیتای زنده — نباید در build-time prerender و freeze شود (باگ شناخته‌شدهٔ فاز ۴)
 export const dynamic = "force-dynamic";
@@ -64,9 +66,19 @@ export default async function TrackRecordPage() {
   }));
   const review = buildRuleReviewReport(reviewInputs, new Date().toISOString());
 
+  // Context برای ChatAssistant
+  const performanceContext = await getPerformancePageContext();
+
+  const suggestedQuestions = [
+    "سیگنال‌های سیستم تا حالا چقدر دقیق بودن؟",
+    "این کارنامه با پرتفوی من چه فرقی داره؟",
+    "بازدهی سیستم در مقابل شاخص کل و شاخص هم‌وزن چطور بوده؟",
+  ];
+
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
-      <div>
+    <div className="flex flex-col gap-6 lg:grid lg:grid-cols-4">
+      <div className="lg:col-span-3 flex flex-col gap-6">
+        <div>
         <p className="mt-1 text-sm text-muted">
           سیستم سیگنال‌های خودش را با بودجهٔ فرضی {formatFaNumber(report.initialCapital)} تومان اجرا می‌کند و نتیجه را
           بدون دستکاری اینجا نشان می‌دهد. این صفحه ابزار اعتمادسازی است، نه تبلیغ — اگر عملکرد بد بود، همان‌طور
@@ -87,26 +99,26 @@ export default async function TrackRecordPage() {
         )}
       </div>
 
-      {!hasData ? (
-        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-          <EmptyState
-            icon={ClipboardList}
-            title="هنوز هیچ سیگنالی در پرتفوی مجازی اجرا نشده"
-            description="موتور اجرای مجازی در ساعات بازار هر ۱۰ دقیقه سیگنال‌های جدید را برمی‌دارد. اولین رکوردها بعد از نخستین جلسهٔ معاملاتی با سیگنال ظاهر می‌شوند."
-          />
-        </div>
-      ) : (
-        <>
-          {metrics.notes.length > 0 && (
-            <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
-              <p className="text-xs font-bold text-warning">محدودیت‌های آماری این اعداد</p>
-              <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs text-muted">
-                {metrics.notes.map((n) => (
-                  <li key={n}>{n}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+        {!hasData ? (
+          <div className="rounded-lg border border-border bg-surface shadow-card p-3">
+            <EmptyState
+              icon={ClipboardList}
+              title="هنوز هیچ سیگنالی در پرتفوی مجازی اجرا نشده"
+              description="موتور اجرای مجازی در ساعات بازار هر ۱۰ دقیقه سیگنال‌های جدید را برمی‌دارد. اولین رکوردها بعد از نخستین جلسهٔ معاملاتی با سیگنال ظاهر می‌شوند."
+            />
+          </div>
+        ) : (
+          <>
+            {metrics.notes.length > 0 && (
+              <div className="rounded-lg border border-warning/40 bg-warning/10 p-3">
+                <p className="text-xs font-bold text-warning">محدودیت‌های آماری این اعداد</p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5 text-xs text-muted">
+                  {metrics.notes.map((n) => (
+                    <li key={n}>{n}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
           <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <Metric
@@ -315,8 +327,17 @@ export default async function TrackRecordPage() {
               </table>
             </div>
           </section>
-        </>
-      )}
+          </>
+        )}
+      </div>
+
+      <div className="lg:col-span-1">
+        <ChatAssistant
+          pageContext={performanceContext ? JSON.stringify(performanceContext) : null}
+          pageName="کارنامهٔ عملکرد"
+          suggestedQuestions={suggestedQuestions}
+        />
+      </div>
     </div>
   );
 }

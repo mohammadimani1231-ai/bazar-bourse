@@ -3,6 +3,7 @@ import type { SignalRow } from "@/components/SignalsTable";
 import { calculatePositionSize, suggestStopLossFromAtr } from "@/lib/position-sizing.ts";
 import { atr } from "@/lib/indicators.ts";
 import { applyScreenerFilters, type ScreenerRow, type ScreenerFilters } from "@/lib/screenerFilters.ts";
+import { buildVirtualPortfolioReport } from "@/lib/virtualPortfolioReport.ts";
 
 /**
  * lib/chat/context.ts
@@ -285,5 +286,214 @@ export async function getScreenerPageContext(
     presetCriteria: presetName ? `فیلتر "${presetName}" اعمال شده` : "بدون فیلتر (تمام نمادها)",
     criteria,
     topResults,
+  };
+}
+
+/**
+ * داده‌ی محل‌صاف صفحهٔ پرتفوی برای ChatAssistant.
+ */
+export interface PortfolioPageContextData {
+  totalCapital: number | null;
+  capitalEngagedPct: number | null;
+  totalOpenValue: number;
+  totalUnrealizedPnl: number;
+  totalRealizedPnl: number;
+  openPositionsCount: number;
+  closedPositionsCount: number;
+  topOpenPositions: Array<{
+    symbol: string;
+    industry: string;
+    unrealizedPnl: number | null;
+    unrealizedPnlPct: number | null;
+  }>;
+  topClosedPositions: Array<{
+    symbol: string;
+    realizedPnl: number;
+    realizedPnlPct: number | null;
+  }>;
+  topSectorConcentration: Array<{
+    industry: string;
+    pct: number | null;
+  }>;
+  stopLossBreachWarnings: Array<{
+    symbol: string;
+    distance: number;
+  }>;
+}
+
+export async function getPortfolioPageContext(
+  openPositions: Array<{
+    symbol: string;
+    industry: string;
+    unrealizedPnl: number | null;
+    unrealizedPnlPct: number | null;
+    currentPrice: number | null;
+    entryPrice: number;
+    stopLoss: number | null;
+    positionValue: number;
+  }>,
+  closedPositions: Array<{
+    symbol: string;
+    realizedPnl: number;
+    realizedPnlPct: number | null;
+  }>,
+  sectorMap: Map<
+    string,
+    {
+      value: number;
+      pct: number | null;
+    }
+  >,
+  totalCapital: number | null,
+  totalUnrealizedPnl: number,
+  totalRealizedPnl: number,
+): Promise<PortfolioPageContextData | null> {
+  const totalOpenValue = openPositions.reduce((sum, p) => sum + p.positionValue, 0);
+  const capitalEngagedPct = totalCapital && totalCapital > 0 ? (totalOpenValue / totalCapital) * 100 : null;
+
+  // ۳ پوزیشن باز با بیشترین/کمترین PnL
+  const topOpenPositions = openPositions
+    .sort((a, b) => {
+      const aPnl = a.unrealizedPnl ?? 0;
+      const bPnl = b.unrealizedPnl ?? 0;
+      return Math.abs(bPnl) - Math.abs(aPnl);
+    })
+    .slice(0, 3)
+    .map((p) => ({
+      symbol: p.symbol,
+      industry: p.industry,
+      unrealizedPnl: p.unrealizedPnl,
+      unrealizedPnlPct: p.unrealizedPnlPct,
+    }));
+
+  // ۳ معامله بسته‌شده با بیشترین/کمترین PnL
+  const topClosedPositions = closedPositions
+    .sort((a, b) => Math.abs(b.realizedPnl) - Math.abs(a.realizedPnl))
+    .slice(0, 3)
+    .map((p) => ({
+      symbol: p.symbol,
+      realizedPnl: p.realizedPnl,
+      realizedPnlPct: p.realizedPnlPct,
+    }));
+
+  // ۳ صنعت با بیشترین تخصیص
+  const topSectorConcentration = [...sectorMap.entries()]
+    .map(([industry, { pct }]) => ({ industry, pct }))
+    .sort((a, b) => (b.pct ?? 0) - (a.pct ?? 0))
+    .slice(0, 3);
+
+  // پوزیشن‌هایی که به حد ضرر نزدیک‌اند (فاصلهٔ قیمت < ۵٪)
+  const stopLossBreachWarnings = openPositions
+    .filter((p) => p.currentPrice != null && p.stopLoss != null)
+    .map((p) => {
+      const distance = ((p.currentPrice! - p.stopLoss!) / p.stopLoss!) * 100;
+      return { symbol: p.symbol, distance };
+    })
+    .filter((w) => w.distance < 5 && w.distance > 0)
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, 3);
+
+  return {
+    totalCapital,
+    capitalEngagedPct,
+    totalOpenValue,
+    totalUnrealizedPnl,
+    totalRealizedPnl,
+    openPositionsCount: openPositions.length,
+    closedPositionsCount: closedPositions.length,
+    topOpenPositions,
+    topClosedPositions,
+    topSectorConcentration,
+    stopLossBreachWarnings,
+  };
+}
+
+/**
+ * داده‌ی محل‌صاف صفحهٔ کارنامهٔ عملکرد برای ChatAssistant.
+ */
+export interface PerformancePageContextData {
+  hasData: boolean;
+  totalTrades: number;
+  totalReturnPct: number | null;
+  winRatePct: number | null;
+  winRateAdequate: boolean;
+  profitFactor: number | null;
+  profitFactorAdequate: boolean;
+  maxDrawdownPct: number;
+  sharpePct: number | null;
+  sharpeAdequate: boolean;
+  cagrPct: number | null;
+  cagrAdequate: boolean;
+  avgHoldingDays: number | null;
+  benchmarkComparisonSummary: Array<{
+    benchmarkName: string;
+    benchmarkReturnPct: number | null;
+    outperformancePct: number | null;
+  }>;
+  insufficientDataReasons: string[];
+}
+
+export async function getPerformancePageContext(): Promise<PerformancePageContextData | null> {
+  const supabase = createServerSupabaseClient();
+  const report = await buildVirtualPortfolioReport(supabase);
+  const { metrics, benchmarkComparison } = report;
+
+  const hasData = report.allTrades.length > 0;
+  if (!hasData) {
+    return {
+      hasData: false,
+      totalTrades: 0,
+      totalReturnPct: null,
+      winRatePct: null,
+      winRateAdequate: false,
+      profitFactor: null,
+      profitFactorAdequate: false,
+      maxDrawdownPct: 0,
+      sharpePct: null,
+      sharpeAdequate: false,
+      cagrPct: null,
+      cagrAdequate: false,
+      avgHoldingDays: null,
+      benchmarkComparisonSummary: [],
+      insufficientDataReasons: ["هنوز هیچ سیگنالی در پرتفوی مجازی اجرا نشده"],
+    };
+  }
+
+  const insufficientReasons: string[] = [];
+  if (!metrics.sampleAdequate) {
+    insufficientReasons.push(`نمونه کمتر از ۲۰ معامله (فقط ${metrics.totalTrades} تا ثبت شده)`);
+  }
+  if (metrics.sharpe == null) {
+    insufficientReasons.push("دوره کمتر از ۹۰ روز برای Sharpe");
+  }
+  if (metrics.cagrPct == null) {
+    insufficientReasons.push("دوره کمتر از یک سال برای CAGR");
+  }
+
+  const benchmarkSummary = benchmarkComparison.map((b) => ({
+    benchmarkName: b.label,
+    benchmarkReturnPct: b.benchmarkReturnPct,
+    outperformancePct:
+      metrics.totalReturnPct != null && b.benchmarkReturnPct != null
+        ? metrics.totalReturnPct - b.benchmarkReturnPct
+        : null,
+  }));
+
+  return {
+    hasData: true,
+    totalTrades: metrics.totalTrades,
+    totalReturnPct: metrics.totalReturnPct,
+    winRatePct: metrics.sampleAdequate ? metrics.winRatePct : null,
+    winRateAdequate: metrics.sampleAdequate,
+    profitFactor: metrics.sampleAdequate && Number.isFinite(metrics.profitFactor) ? metrics.profitFactor : null,
+    profitFactorAdequate: metrics.sampleAdequate && Number.isFinite(metrics.profitFactor),
+    maxDrawdownPct: metrics.maxDrawdownPct,
+    sharpePct: metrics.sharpe,
+    sharpeAdequate: metrics.sharpe != null,
+    cagrPct: metrics.cagrPct,
+    cagrAdequate: metrics.cagrPct != null,
+    avgHoldingDays: metrics.avgHoldingDays,
+    benchmarkComparisonSummary: benchmarkSummary,
+    insufficientDataReasons: insufficientReasons,
   };
 }

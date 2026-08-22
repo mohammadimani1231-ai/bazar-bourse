@@ -9,10 +9,12 @@ export function SignalsTabs({
   initialSignals,
   ruleStats,
   scorePoints,
+  onSelectSymbol,
 }: {
   initialSignals: SignalRow[];
   ruleStats: RuleStat[];
   scorePoints: ScorePoint[];
+  onSelectSymbol?: (symbol: string) => void;
 }) {
   const [tab, setTab] = useState<"active" | "track_record">("active");
 
@@ -33,7 +35,7 @@ export function SignalsTabs({
         </button>
       </div>
       {tab === "active" ? (
-        <SignalsTable initial={initialSignals} />
+        <SignalsTable initial={initialSignals} onSelectSymbol={onSelectSymbol} />
       ) : (
         <RulePerformance stats={ruleStats} scorePoints={scorePoints} />
       )}

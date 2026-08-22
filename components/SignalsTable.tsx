@@ -33,7 +33,7 @@ function directionLabel(direction: string): string {
   return direction;
 }
 
-export function SignalsTable({ initial }: { initial: SignalRow[] }) {
+export function SignalsTable({ initial, onSelectSymbol }: { initial: SignalRow[]; onSelectSymbol?: (symbol: string) => void }) {
   const [rows, setRows] = useState(initial);
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
@@ -140,7 +140,12 @@ export function SignalsTable({ initial }: { initial: SignalRow[] }) {
                           className={`cursor-pointer border-b border-border/60 hover:bg-surface-2 ${
                             i % 2 === 1 ? "bg-surface-2/25" : ""
                           }`}
-                          onClick={() => setExpandedId(expanded ? null : row.id)}
+                          onClick={() => {
+                            if (!expanded) {
+                              onSelectSymbol?.(row.symbol);
+                            }
+                            setExpandedId(expanded ? null : row.id);
+                          }}
                         >
                           <td className="p-2">
                             <Link

@@ -4,6 +4,8 @@ import { formatJalaliDay } from "@/lib/jalali.ts";
 import { renderLineChartSvg, type LinePoint } from "@/lib/reportCharts.ts";
 import { PortfolioClient, type ClosePositionRow, type OpenPositionRow } from "@/components/PortfolioClient";
 import { StatTile } from "@/components/StatTile";
+import { ChatAssistant } from "@/components/ChatAssistant";
+import { getPortfolioPageContext } from "@/lib/chat/context.ts";
 
 export const dynamic = "force-dynamic";
 
@@ -132,56 +134,91 @@ export default async function PortfolioPage() {
   // آخرین نقطهٔ همان reduce بالا — سود/زیان تحقق‌شدهٔ تجمعی، نه محاسبهٔ جدید
   const totalRealizedPnl = equityCurvePoints.length > 0 ? equityCurvePoints[equityCurvePoints.length - 1].y : 0;
 
+  // Context برای ChatAssistant
+  const portfolioContext = await getPortfolioPageContext(
+    openPositions,
+    closedPositions,
+    new Map(
+      sectorRows.map((s) => [
+        s.industry,
+        {
+          value: s.value,
+          pct: s.pct,
+        },
+      ]),
+    ),
+    totalCapital,
+    totalUnrealizedPnl,
+    totalRealizedPnl,
+  );
+
+  const suggestedQuestions = [
+    "وضعیت کلی پرتفوی من الان چیه؟",
+    "کدوم پوزیشن باز بیشترین سود یا زیان رو داره؟",
+    "کدوم پوزیشن‌ها به حد ضررشون نزدیک شدن؟",
+    "پرتفویم چقدر روی یک صنعت متمرکزه؟",
+  ];
+
   return (
-    <div className="flex flex-col gap-4">
-      <div>
-        <p className="text-xs text-muted">ثبت دستی معامله برای پیگیری بدون پول واقعی — هیچ اجرای خودکاری وجود ندارد.</p>
-        <p className="mt-1 text-xs text-muted">
-          این دفتر <strong className="text-foreground">تمرین دستی خودتان</strong> است. راستی‌آزمایی خودکار سیگنال‌های
-          سیستم جدا در{" "}
-          <a href="/track-record" className="text-accent hover:underline">
-            کارنامهٔ عملکرد
-          </a>{" "}
-          نگه‌داری می‌شود — دو جدول مستقل با دو هدف متفاوت؛ هیچ‌کدام روی دیگری اثر نمی‌گذارد.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <StatTile label="پوزیشن‌های باز" value={formatFaNumber(openPositions.length)} />
-        <StatTile label="ارزش پوزیشن‌های باز" value={formatFaNumber(totalOpenValue)} />
-        <StatTile label="درصد سرمایهٔ درگیر" value={totalOpenPct == null ? "—" : formatFaPercent(totalOpenPct)} />
-        <StatTile label="معاملات بسته‌شده" value={formatFaNumber(closedPositions.length)} />
-        <StatTile label="سود/زیان تحقق‌نیافتهٔ کل" value={formatFaNumber(totalUnrealizedPnl)} />
-        <StatTile label="سود/زیان تحقق‌شدهٔ کل" value={formatFaNumber(totalRealizedPnl)} />
-      </div>
-
-      {sectorRows.length > 0 && (
-        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-          <h2 className="mb-2 text-sm font-bold">تخصیص صنعتی</h2>
-          <div className="flex flex-col gap-1">
-            {sectorRows.map((s) => (
-              <div key={s.industry} className="flex items-center justify-between text-xs">
-                <span className={s.pct != null && s.pct > maxSectorExposurePct ? "text-down" : "text-foreground"}>
-                  {s.industry}
-                </span>
-                <span className="ltr-nums text-muted">
-                  {formatFaNumber(s.value)} ({s.pct == null ? "—" : formatFaPercent(s.pct)})
-                </span>
-              </div>
-            ))}
-          </div>
+    <div className="flex flex-col gap-4 lg:grid lg:grid-cols-4">
+      <div className="lg:col-span-3 flex flex-col gap-4">
+        <div>
+          <p className="text-xs text-muted">ثبت دستی معامله برای پیگیری بدون پول واقعی — هیچ اجرای خودکاری وجود ندارد.</p>
+          <p className="mt-1 text-xs text-muted">
+            این دفتر <strong className="text-foreground">تمرین دستی خودتان</strong> است. راستی‌آزمایی خودکار سیگنال‌های
+            سیستم جدا در{" "}
+            <a href="/track-record" className="text-accent hover:underline">
+              کارنامهٔ عملکرد
+            </a>{" "}
+            نگه‌داری می‌شود — دو جدول مستقل با دو هدف متفاوت؛ هیچ‌کدام روی دیگری اثر نمی‌گذارد.
+          </p>
         </div>
-      )}
 
-      <PortfolioClient openPositions={openPositions} closedPositions={closedPositions} symbolOptions={symbolOptions} />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <StatTile label="پوزیشن‌های باز" value={formatFaNumber(openPositions.length)} />
+          <StatTile label="ارزش پوزیشن‌های باز" value={formatFaNumber(totalOpenValue)} />
+          <StatTile label="درصد سرمایهٔ درگیر" value={totalOpenPct == null ? "—" : formatFaPercent(totalOpenPct)} />
+          <StatTile label="معاملات بسته‌شده" value={formatFaNumber(closedPositions.length)} />
+          <StatTile label="سود/زیان تحقق‌نیافتهٔ کل" value={formatFaNumber(totalUnrealizedPnl)} />
+          <StatTile label="سود/زیان تحقق‌شدهٔ کل" value={formatFaNumber(totalRealizedPnl)} />
+        </div>
 
-      <div className="rounded-lg border border-border bg-surface shadow-card p-3">
-        <h2 className="mb-2 text-sm font-bold">منحنی سود/زیان محقق‌شدهٔ تجمعی</h2>
-        {equityCurveSvg ? (
-          <div className="ltr-nums" dangerouslySetInnerHTML={{ __html: equityCurveSvg }} />
-        ) : (
-          <p className="text-xs text-muted">با حداقل ۲ معاملهٔ بسته‌شده این منحنی نمایش داده می‌شود.</p>
+        {sectorRows.length > 0 && (
+          <div className="rounded-lg border border-border bg-surface shadow-card p-3">
+            <h2 className="mb-2 text-sm font-bold">تخصیص صنعتی</h2>
+            <div className="flex flex-col gap-1">
+              {sectorRows.map((s) => (
+                <div key={s.industry} className="flex items-center justify-between text-xs">
+                  <span className={s.pct != null && s.pct > maxSectorExposurePct ? "text-down" : "text-foreground"}>
+                    {s.industry}
+                  </span>
+                  <span className="ltr-nums text-muted">
+                    {formatFaNumber(s.value)} ({s.pct == null ? "—" : formatFaPercent(s.pct)})
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
+
+        <PortfolioClient openPositions={openPositions} closedPositions={closedPositions} symbolOptions={symbolOptions} />
+
+        <div className="rounded-lg border border-border bg-surface shadow-card p-3">
+          <h2 className="mb-2 text-sm font-bold">منحنی سود/زیان محقق‌شدهٔ تجمعی</h2>
+          {equityCurveSvg ? (
+            <div className="ltr-nums" dangerouslySetInnerHTML={{ __html: equityCurveSvg }} />
+          ) : (
+            <p className="text-xs text-muted">با حداقل ۲ معاملهٔ بسته‌شده این منحنی نمایش داده می‌شود.</p>
+          )}
+        </div>
+      </div>
+
+      <div className="lg:col-span-1">
+        <ChatAssistant
+          pageContext={portfolioContext ? JSON.stringify(portfolioContext) : null}
+          pageName="پرتفوی"
+          suggestedQuestions={suggestedQuestions}
+        />
       </div>
     </div>
   );

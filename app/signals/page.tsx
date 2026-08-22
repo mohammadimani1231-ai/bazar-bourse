@@ -1,5 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/serverClient.ts";
-import { SignalsTabs } from "@/components/SignalsTabs";
+import { SignalsPageClient } from "@/components/SignalsPageClient";
 import { computeRuleStats } from "@/lib/ruleStats.ts";
 import type { SignalRow } from "@/components/SignalsTable";
 
@@ -50,8 +50,10 @@ export default async function SignalsPage() {
   const scorePoints = withOutcome.map((s) => ({ score: s.score, returnPct: s.returnPct! }));
 
   return (
-    <div className="flex flex-col gap-4">
-      <SignalsTabs initialSignals={initialSignals} ruleStats={ruleStats} scorePoints={scorePoints} />
-    </div>
+    <SignalsPageClient
+      initialSignals={initialSignals}
+      ruleStats={ruleStats}
+      scorePoints={scorePoints}
+    />
   );
 }
